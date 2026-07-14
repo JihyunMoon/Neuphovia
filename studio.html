@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AURA Studio — 통합</title>
+<style>
+  :root{--bg:#0b0910;--panel:rgba(255,255,255,.045);--panel2:rgba(255,255,255,.07);--border:rgba(255,255,255,.10);--text:#f0edf6;--dim:#a49db8;--muted:#605874;
+    --gold:#f5c469;--rose:#ff8fb0;--cyan:#5fd6d0;--violet:#a78bff;
+    --font:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Segoe UI',sans-serif;--serif:'Georgia','Apple SD Gothic Neo',serif;--mono:'SF Mono','Fira Code',ui-monospace,monospace;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:radial-gradient(ellipse 90% 45% at 50% -5%,rgba(245,196,105,.09),transparent 55%),var(--bg);color:var(--text);font-family:var(--font);padding:18px 14px;}
+  .wrap{max-width:1040px;margin:0 auto;}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+  header{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+  header .logo{font-family:var(--serif);font-size:22px;font-weight:600;background:linear-gradient(90deg,var(--gold),var(--rose),var(--violet));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  header .sub{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.12em;}
+  header .note{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted);}
+  .layout{display:grid;grid-template-columns:212px 1fr;gap:14px;}
+  @media(max-width:800px){.layout{grid-template-columns:1fr;}}
+  /* library */
+  .lib{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;}
+  .lib h3{font-size:10px;font-family:var(--mono);letter-spacing:.14em;color:var(--muted);text-transform:uppercase;display:flex;justify-content:space-between;}
+  .add{display:flex;flex-wrap:wrap;gap:5px;}
+  .add label,.add button{background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:6px 9px;color:var(--dim);font-size:11px;cursor:pointer;font-family:var(--mono);}
+  .add label.primary{background:linear-gradient(90deg,var(--gold),var(--rose));border-color:transparent;color:#1a1014;font-weight:700;}
+  .add button:hover,.add label:hover{color:var(--text);}
+  input[type=file]{display:none;}
+  .grid-th{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:340px;overflow:auto;}
+  .th{position:relative;border-radius:8px;overflow:hidden;border:2px solid transparent;cursor:pointer;aspect-ratio:4/3;}
+  .th img{width:100%;height:100%;object-fit:cover;display:block;}
+  .th.sel{border-color:var(--gold);}
+  .th .x{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);border-radius:50%;width:16px;height:16px;font-size:10px;color:#fff;display:flex;align-items:center;justify-content:center;opacity:0;}
+  .th:hover .x{opacity:1;}
+  .libempty{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;padding:20px 4px;}
+  /* main */
+  .main{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px;}
+  .tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+  .tab{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--dim);font-size:12.5px;cursor:pointer;font-family:var(--mono);}
+  .tab.on{background:rgba(245,196,105,.15);border-color:var(--gold);color:var(--gold);}
+  .view{display:none;}.view.on{display:block;}
+  .stage{position:relative;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#05040a;aspect-ratio:1/0.62;}
+  .stage.enh{cursor:ew-resize;}
+  canvas{display:block;width:100%;height:100%;}
+  .panels{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+  @media(max-width:640px){.panels{grid-template-columns:1fr;}}
+  .p{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+  .p h4{font-size:9px;font-family:var(--mono);letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-bottom:8px;}
+  .aura .v{font-family:var(--serif);font-size:26px;text-align:center;}
+  .track{height:7px;border-radius:4px;background:linear-gradient(90deg,#4f6bff,#8b7bff,#f5c469,#ff8fb0);margin-top:8px;position:relative;}
+  .track .dot{position:absolute;top:-3px;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 0 7px #fff;transform:translateX(-50%);}
+  .sw{display:flex;height:30px;border-radius:7px;overflow:hidden;}.sw div{flex:1;}
+  .swhex{display:flex;gap:5px;margin-top:5px;font-family:var(--mono);font-size:9px;color:var(--muted);flex-wrap:wrap;}
+  .guide .t{font-size:12px;color:var(--dim);padding:4px 0 4px 14px;position:relative;line-height:1.5;}.guide .t::before{content:'▸';position:absolute;left:0;color:var(--gold);}
+  .arc{font-size:12px;color:var(--dim);line-height:1.5;}.arc b{color:var(--cyan);}
+  .ovt{display:flex;gap:5px;margin-bottom:8px;}
+  .ovt button{flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:5px;color:var(--dim);font-size:10px;cursor:pointer;font-family:var(--mono);}
+  .ovt button.on{background:rgba(95,214,208,.15);border-color:var(--cyan);color:var(--cyan);}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;}
+  .btn{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px 13px;color:var(--dim);font-size:12px;cursor:pointer;font-family:var(--mono);}
+  .btn.primary{background:linear-gradient(90deg,var(--gold),var(--rose));border-color:transparent;color:#1a1014;font-weight:700;}
+  .edits{font-family:var(--mono);font-size:11px;color:var(--dim);}.edits div{display:flex;justify-content:space-between;padding:2px 0;}.edits .dv{color:var(--cyan);}
+  .strength{display:flex;align-items:center;gap:8px;}.strength input{flex:1;}
+  input[type=range]{-webkit-appearance:none;height:4px;border-radius:2px;background:rgba(255,255,255,.14);outline:none;cursor:pointer;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--gold);cursor:pointer;box-shadow:0 0 6px var(--gold);}
+  .empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);gap:8px;text-align:center;}
+  .empty .big{font-size:30px;}
+  .idbase{text-align:center;}.idbase .v{font-family:var(--serif);font-size:24px;color:var(--violet);}
+  .idstats{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-family:var(--mono);font-size:11px;margin-top:6px;}
+  .idstats .s{background:var(--panel);border-radius:6px;padding:6px 8px;}.idstats .k{font-size:9px;color:var(--muted);}.idstats .vv{font-size:13px;}
+  .foot{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:14px;text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2 class="sr-only">사진 하나가 분석·재가공·노래·정체성을 관통하고 라이브러리가 영속되는 AURA 통합 스튜디오</h2>
+  <header>
+    <span class="logo">AURA Studio</span><span class="sub">one photo · every tool · persistent</span>
+    <span class="note" id="dbnote"></span>
+  </header>
+  <div class="layout">
+    <!-- LIBRARY -->
+    <div class="lib">
+      <h3>라이브러리 <span id="libcount" style="color:var(--muted)">0</span></h3>
+      <div class="add">
+        <label class="primary" for="file">＋ 올리기</label>
+        <input type="file" id="file" accept="image/*" multiple>
+        <button data-s="sunset">🌅</button><button data-s="night">🌃</button><button data-s="forest">🌲</button><button data-s="flat">🌫️</button>
+      </div>
+      <div class="grid-th" id="lib"></div>
+      <button class="btn" id="clear" style="font-size:11px">라이브러리 비우기</button>
+    </div>
+    <!-- MAIN -->
+    <div class="main">
+      <div class="tabs">
+        <button class="tab on" data-v="analyze">🔍 분석</button>
+        <button class="tab" data-v="enhance">✨ 재가공</button>
+        <button class="tab" data-v="song">🎵 노래</button>
+        <button class="tab" data-v="identity">🧬 정체성</button>
+      </div>
+
+      <!-- ANALYZE -->
+      <div class="view on" id="v-analyze">
+        <div class="stage"><canvas id="cAnalyze"></canvas><div class="empty" id="emptyA"><div class="big">🖼️</div><div>사진을 올리거나 샘플을 선택</div></div></div>
+        <div class="panels">
+          <div class="p"><h4>구도 오버레이</h4><div class="ovt"><button data-o="golden" class="on">황금비</button><button data-o="thirds">삼분할</button><button data-o="none">없음</button></div><div class="guide" id="guideA" style="margin-top:6px"></div></div>
+          <div class="p aura"><h4>아우라</h4><div class="v" id="auraV">—</div><div class="track"><div class="dot" id="auraDot" style="left:50%"></div></div><h4 style="margin-top:12px">컬러 스키마</h4><div class="sw" id="swA"></div><div class="swhex" id="swhexA"></div></div>
+        </div>
+        <div class="p" style="margin-top:10px"><h4>음악 서사</h4><div class="arc" id="arcA">—</div></div>
+      </div>
+
+      <!-- ENHANCE -->
+      <div class="view" id="v-enhance">
+        <div class="stage enh" id="stageE"><canvas id="cEnhance"></canvas><div class="empty" id="emptyE"><div class="big">✨</div><div>사진을 선택하세요</div></div></div>
+        <div class="panels">
+          <div class="p"><h4>재가공 강도</h4><div class="strength"><input type="range" id="strength" min="0" max="100" value="100"><span id="sv" style="font-family:var(--mono);font-size:12px;color:var(--gold)">100%</span></div><p style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono)">← 드래그: BEFORE / AFTER →</p></div>
+          <div class="p"><h4>적용된 보정</h4><div class="edits" id="editsE"></div></div>
+        </div>
+      </div>
+
+      <!-- SONG -->
+      <div class="view" id="v-song">
+        <div class="stage"><canvas id="cSong"></canvas><div class="empty" id="emptyS"><div class="big">🎵</div><div>사진을 선택하세요</div></div></div>
+        <div class="row"><button class="btn primary" id="playBtn">▶ 이 사진의 노래</button><span class="arc" id="arcS" style="flex:1"></span></div>
+      </div>
+
+      <!-- IDENTITY -->
+      <div class="view" id="v-identity">
+        <div class="stage"><canvas id="cId"></canvas><div class="empty" id="emptyI"><div class="big">🧬</div><div>사진을 2장 이상 모으면<br>취향 군집이 나타납니다</div></div></div>
+        <div class="panels">
+          <div class="p"><h4>팔레트 시그니처</h4><div class="sw" id="sigI"><div style="background:#222"></div></div><h4 style="margin-top:12px">한 줄 정체성</h4><div class="arc" id="sumI">—</div></div>
+          <div class="p idbase"><h4>아우라 베이스라인</h4><div class="v" id="baseI">—</div><div class="idstats"><div class="s"><div class="k">밝기</div><div class="vv" id="idB">—</div></div><div class="s"><div class="k">채도</div><div class="vv" id="idS">—</div></div><div class="s"><div class="k">색온도</div><div class="vv" id="idW">—</div></div><div class="s"><div class="k">일관성</div><div class="vv" id="idC">—</div></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="foot">사진 하나가 4개 탭을 관통 · 라이브러리는 IndexedDB로 영속(새로고침해도 유지). ※ http 서빙 권장(file://은 저장 제약).</p>
+</div>
+
+<script src="aura-core.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+let library=[]; // {id, thumb, analysis}
+let current=null; // library item
+let curImg=null;  // Image from thumb
+let tab='analyze';
+
+/* ---- DB load ---- */
+async function refresh(){
+  try{ library=await AuraCore.db.all(); $('dbnote').textContent='IndexedDB · '+library.length+'장 저장됨'; }
+  catch(e){ $('dbnote').textContent='⚠ 저장 불가(파일 직접열기). http 서빙 권장'; library=library||[]; }
+  renderLib(); renderIdentity();
+  if(!current && library.length) select(library[library.length-1]);
+  if(!library.length){current=null;curImg=null;['emptyA','emptyE','emptyS','emptyI'].forEach(id=>$(id).style.display='flex');}
+}
+function renderLib(){
+  $('libcount').textContent=library.length;
+  if(!library.length){$('lib').innerHTML='<div class="libempty">비어있음.<br>사진을 올려보세요.</div>';return;}
+  $('lib').innerHTML='';
+  library.forEach(it=>{const d=document.createElement('div');d.className='th'+(current&&current.id===it.id?' sel':'');
+    d.innerHTML=`<img src="${it.thumb}"><div class="x" title="삭제">✕</div>`;
+    d.querySelector('img').onclick=()=>select(it);
+    d.querySelector('.x').onclick=async(e)=>{e.stopPropagation();await AuraCore.db.del(it.id);if(current&&current.id===it.id)current=null;refresh();};
+    $('lib').appendChild(d);});
+}
+async function addSource(src){
+  const analysis=AuraCore.analyze(src); if(!analysis)return;
+  const thumb=AuraCore.toThumb(src,320);
+  let id; try{ id=await AuraCore.db.add({thumb,analysis,createdAt:Date.now()}); }catch(e){ id='mem'+Math.random(); }
+  const item={id,thumb,analysis}; library.push(item); await refresh(); select(item);
+}
+function select(it){current=it;curImg=new Image();curImg.onload=()=>{['emptyA','emptyE','emptyS','emptyI'].forEach(id=>$(id).style.display='none');renderCurrent();};curImg.src=it.thumb;renderLib();}
+
+/* ---- inputs ---- */
+document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>addSource(AuraCore.genSample(b.dataset.s)));
+$('file').addEventListener('change',e=>{[...e.target.files].forEach(f=>{const im=new Image();im.onload=()=>addSource(im);im.src=URL.createObjectURL(f);});});
+$('clear').onclick=async()=>{await AuraCore.db.clear();library=[];current=null;curImg=null;refresh();};
+
+/* ---- tabs ---- */
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));b.classList.add('on');document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));$('v-'+b.dataset.v).classList.add('on');tab=b.dataset.v;renderCurrent();});
+
+function renderCurrent(){ if(!current)return; renderAnalyze(); if(tab==='enhance')renderEnhance(); if(tab==='song')renderSong(); }
+
+/* ---- ANALYZE ---- */
+let overlay='golden';
+document.querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-o]').forEach(x=>x.classList.remove('on'));b.classList.add('on');overlay=b.dataset.o;drawAnalyze();});
+function fit(cv,img){const r=cv.getBoundingClientRect();const W=r.width,H=r.height;const ar=img.width/img.height,cr=W/H;let dw,dh,dx,dy;if(ar>cr){dw=W;dh=W/ar;dx=0;dy=(H-dh)/2;}else{dh=H;dw=H*ar;dy=0;dx=(W-dw)/2;}return{W,H,dw,dh,dx,dy};}
+function setup(cv){const r=cv.getBoundingClientRect();const DPR=Math.min(2,devicePixelRatio||1);cv.width=r.width*DPR;cv.height=r.height*DPR;const c=cv.getContext('2d');c.setTransform(DPR,0,0,DPR,0,0);return c;}
+function drawAnalyze(){if(!curImg)return;const cv=$('cAnalyze'),ctx=setup(cv);const{W,H,dw,dh,dx,dy}=fit(cv,curImg);ctx.clearRect(0,0,W,H);ctx.drawImage(curImg,dx,dy,dw,dh);const a=current.analysis;
+  ctx.save();ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=1;
+  if(overlay==='thirds')[1/3,2/3].forEach(f=>{ctx.beginPath();ctx.moveTo(dx+dw*f,dy);ctx.lineTo(dx+dw*f,dy+dh);ctx.stroke();ctx.beginPath();ctx.moveTo(dx,dy+dh*f);ctx.lineTo(dx+dw,dy+dh*f);ctx.stroke();});
+  else if(overlay==='golden'){[0.382,0.618].forEach(f=>{ctx.beginPath();ctx.moveTo(dx+dw*f,dy);ctx.lineTo(dx+dw*f,dy+dh);ctx.stroke();ctx.beginPath();ctx.moveTo(dx,dy+dh*f);ctx.lineTo(dx+dw,dy+dh*f);ctx.stroke();});ctx.strokeStyle='rgba(245,196,105,.5)';ctx.beginPath();ctx.arc(dx+dw*.618,dy+dh*.618,dw*.382,Math.PI,Math.PI*1.5);ctx.stroke();}
+  if(overlay!=='none'){ctx.fillStyle='rgba(95,214,208,.9)';ctx.beginPath();ctx.arc(dx+dw*a.centroid.x,dy+dh*a.centroid.y,5,0,7);ctx.fill();ctx.strokeStyle='rgba(95,214,208,.4)';ctx.beginPath();ctx.arc(dx+dw*a.centroid.x,dy+dh*a.centroid.y,12,0,7);ctx.stroke();}
+  ctx.restore();}
+function renderAnalyze(){const a=current.analysis;
+  $('auraV').textContent=(a.aura>=0?'+':'')+a.aura.toFixed(2);$('auraV').style.color=a.aura>.3?'var(--gold)':a.aura<-.3?'var(--violet)':'var(--cyan)';
+  $('auraDot').style.left=((a.aura+1)/2*100)+'%';
+  $('swA').innerHTML=a.paletteHex.map(h=>`<div style="background:${h}"></div>`).join('');$('swhexA').innerHTML=a.paletteHex.map(h=>`<span>${h}</span>`).join('');
+  $('guideA').innerHTML=AuraCore.guidelines(a).map(t=>`<div class="t">${t}</div>`).join('');
+  $('arcA').innerHTML=AuraCore.musicArc(a);
+  drawAnalyze();}
+
+/* ---- ENHANCE ---- */
+let graded=null,divider=.5,strength=1;
+function renderEnhance(){if(!curImg)return;graded=AuraCore.grade(curImg);$('editsE').innerHTML=graded.edits.map(e=>`<div><span>${e[0]}</span><span class="dv">${e[1]}</span></div>`).join('');drawEnhance();}
+function drawEnhance(){if(!graded)return;const cv=$('cEnhance'),ctx=setup(cv);const{W,H,dw,dh,dx,dy}=fit(cv,graded.before);ctx.clearRect(0,0,W,H);
+  ctx.drawImage(graded.before,dx,dy,dw,dh);ctx.save();ctx.globalAlpha=strength;ctx.drawImage(graded.after,dx,dy,dw,dh);ctx.restore();
+  const divX=dx+dw*divider;ctx.save();ctx.beginPath();ctx.rect(dx,dy,dw*divider,dh);ctx.clip();ctx.drawImage(graded.before,dx,dy,dw,dh);ctx.restore();
+  ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(divX,dy);ctx.lineTo(divX,dy+dh);ctx.stroke();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(divX,dy+dh/2,10,0,7);ctx.fill();ctx.fillStyle='#1a1014';ctx.font='10px monospace';ctx.textAlign='center';ctx.fillText('⇄',divX,dy+dh/2+3);}
+const stageE=$('stageE');let dragE=false;
+function setDivE(e){const cv=$('cEnhance'),r=cv.getBoundingClientRect();if(!graded)return;const{dw,dx}=fit(cv,graded.before);divider=Math.max(0,Math.min(1,(e.clientX-r.left-dx)/dw));drawEnhance();}
+stageE.addEventListener('pointerdown',e=>{dragE=true;stageE.setPointerCapture(e.pointerId);setDivE(e);});
+stageE.addEventListener('pointermove',e=>{if(dragE)setDivE(e);});stageE.addEventListener('pointerup',()=>dragE=false);
+$('strength').addEventListener('input',e=>{strength=e.target.value/100;$('sv').textContent=e.target.value+'%';drawEnhance();});
+
+/* ---- SONG ---- */
+let songT0=0,songDur=0,songPlaying=false;
+function renderSong(){if(!current)return;$('arcS').innerHTML=AuraCore.musicArc(current.analysis);}
+$('playBtn').onclick=()=>{if(!current||songPlaying)return;$('playBtn').textContent='♪ 재생 중…';songT0=performance.now();songPlaying=true;songDur=AuraCore.audio.play(current.analysis,()=>{songPlaying=false;$('playBtn').textContent='▶ 이 사진의 노래';});};
+function drawSong(ts){requestAnimationFrame(drawSong);if(tab!=='song'||!current)return;const cv=$('cSong'),ctx=setup(cv);const r=cv.getBoundingClientRect(),W=r.width,H=r.height;ctx.clearRect(0,0,W,H);
+  const bg=ctx.createLinearGradient(0,0,0,H);const warmB=songPlaying?Math.max(0,(performance.now()-songT0)/(songDur*1000)-0.6)*0.5:0;bg.addColorStop(0,`rgb(${16+warmB*70},${11},${26})`);bg.addColorStop(1,'#07050e');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  const a=current.analysis,wave=a.wave,pr=a.palette[0];const time=ts/1000;let p=0,en=.4;if(songPlaying){p=Math.min(1,(performance.now()-songT0)/(songDur*1000));en=p<.35?.4+.3*p/.35:p<.7?.55+.35*(p-.35)/.35:p<.85?.95:Math.max(0,.95-(p-.85)/.15*.6);}
+  ctx.globalCompositeOperation='lighter';ctx.strokeStyle=AuraCore.hex(pr.r+50,pr.g+50,pr.b+70);ctx.lineWidth=2.5;ctx.beginPath();
+  for(let i=0;i<wave.length;i++){const x=i/(wave.length-1)*W;const mod=Math.sin(time*4+i*.5)*.5+.5;const amp=(wave[i]-.5)*H*.7*(.5+en*1.5)*(.6+.8*mod);const y=H/2-amp;i?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();
+  for(let i=0;i<wave.length;i++){const x=i/(wave.length-1)*W;const mod=Math.abs(Math.sin(time*5+i*.6));const h=wave[i]*H*.5*(.5+en)*mod;ctx.fillStyle=`rgba(${pr.r+70},${pr.g+70},${pr.b+90},${.3*en})`;ctx.fillRect(x-1.3,H/2-h/2,2.6,h);}
+  if(songPlaying){ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(p*W,0);ctx.lineTo(p*W,H);ctx.stroke();}
+  ctx.globalCompositeOperation='source-over';}
+requestAnimationFrame(drawSong);
+
+/* ---- IDENTITY (all library) ---- */
+function renderIdentity(){const analyses=library.map(it=>it.analysis);const id=AuraCore.identity(analyses);
+  $('emptyI').style.display=library.length?'none':'flex';
+  if(id){$('baseI').textContent=(id.avgAura>=0?'+':'')+id.avgAura.toFixed(2);$('baseI').style.color=id.avgAura>.25?'var(--gold)':id.avgAura<-.25?'var(--violet)':'var(--cyan)';
+    $('idB').textContent=Math.round(id.avgBright*100)+'%';$('idS').textContent=Math.round(id.avgSat*100)+'%';$('idW').textContent=id.avgWarm>.05?'따뜻':id.avgWarm<-.05?'차가움':'중립';$('idC').textContent=Math.round(id.coherence*100)+'%';
+    $('sigI').innerHTML=id.signature.map(h=>`<div style="background:${h}"></div>`).join('');
+    $('sumI').innerHTML=id.summary+(library.length<4?' 사진을 더 모으면 선명해집니다.':' 이 군집이 당신의 미적 시그니처입니다.');
+  }else{$('baseI').textContent='—';['idB','idS','idW','idC'].forEach(x=>$(x).textContent='—');$('sigI').innerHTML='<div style="background:#222"></div>';$('sumI').textContent='—';}
+  drawId();}
+function drawId(){const cv=$('cId'),ctx=setup(cv);const r=cv.getBoundingClientRect(),W=r.width,H=r.height;ctx.clearRect(0,0,W,H);
+  const bg=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,H*.7);bg.addColorStop(0,'#120c1e');bg.addColorStop(1,'#07050e');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(255,255,255,.10)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.3)';ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText('차가움 ← 색온도 → 따뜻함',W/2,H-6);
+  const A=library.map(it=>it.analysis);if(!A.length)return;
+  const toXY=(w,b)=>({x:W*(.5+w*1.4),y:H*(1-b)});
+  A.forEach(a=>{const{x,y}=toXY(a.warm,a.bright);const c=a.palette[0];ctx.fillStyle=AuraCore.hex(c.r,c.g,c.b);ctx.beginPath();ctx.arc(x,y,5+a.sat*10,0,7);ctx.fill();ctx.strokeStyle='rgba(255,255,255,.3)';ctx.stroke();});
+  const aW=A.reduce((s,a)=>s+a.warm,0)/A.length,aB=A.reduce((s,a)=>s+a.bright,0)/A.length;const c=toXY(aW,aB);
+  ctx.globalCompositeOperation='lighter';const gg=ctx.createRadialGradient(c.x,c.y,0,c.x,c.y,80);gg.addColorStop(0,'rgba(167,139,255,.25)');gg.addColorStop(1,'rgba(167,139,255,0)');ctx.fillStyle=gg;ctx.fillRect(0,0,W,H);ctx.globalCompositeOperation='source-over';
+  ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(c.x,c.y,7,0,7);ctx.stroke();ctx.fillStyle='#fff';ctx.fillText('취향 중심',c.x,c.y-13);}
+
+window.addEventListener('resize',()=>{if(current){drawAnalyze();if(tab==='enhance')drawEnhance();}drawId();});
+refresh();
+</script>
+</body>
+</html>
