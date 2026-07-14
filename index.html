@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AURA — 사진을 노래로</title>
+<style>
+  :root{--bg:#08060e;--panel:rgba(255,255,255,.045);--border:rgba(255,255,255,.10);--text:#f2eff8;--dim:#a49db8;--muted:#605874;
+    --gold:#f5c469;--rose:#ff8fb0;--cyan:#5fd6d0;--violet:#a78bff;
+    --font:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Segoe UI',sans-serif;--serif:'Georgia','Apple SD Gothic Neo',serif;--mono:'SF Mono','Fira Code',ui-monospace,monospace;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex;flex-direction:column;height:100vh;}
+  header{display:flex;align-items:center;gap:16px;padding:14px 22px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.02);flex-wrap:wrap;}
+  .logo{font-family:var(--serif);font-size:24px;font-weight:600;letter-spacing:.06em;background:linear-gradient(90deg,var(--gold),var(--rose),var(--violet));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  .logo-sub{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.12em;}
+  nav{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;}
+  .tab{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:8px 14px;color:var(--dim);font-size:12.5px;cursor:pointer;font-family:var(--mono);transition:.15s;display:flex;align-items:center;gap:6px;}
+  .tab:hover{border-color:rgba(255,255,255,.3);color:var(--text);}
+  .tab.on{background:linear-gradient(90deg,rgba(245,196,105,.18),rgba(255,143,176,.14));border-color:var(--gold);color:var(--gold);}
+  .tab .n{font-size:10px;opacity:.7;}
+  main{flex:1;position:relative;overflow:hidden;}
+  iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--bg);}
+  /* home */
+  .home{position:absolute;inset:0;overflow:auto;padding:40px 24px;background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(245,196,105,.10),transparent 60%);}
+  .home .hero{text-align:center;max-width:680px;margin:20px auto 40px;}
+  .home .hero h1{font-family:var(--serif);font-size:44px;font-weight:600;letter-spacing:.02em;}
+  .home .hero h1 .g{background:linear-gradient(90deg,var(--gold),var(--rose),var(--violet));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  .home .hero .tag{font-size:16px;color:var(--cyan);font-style:italic;margin-top:6px;}
+  .home .hero p{font-size:14px;color:var(--dim);margin-top:12px;}
+  .flow{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:22px;}
+  .fs{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:6px 13px;font-family:var(--mono);font-size:11px;color:var(--dim);}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;max-width:900px;margin:0 auto;}
+  .c{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;cursor:pointer;transition:.18s;}
+  .c:hover{border-color:var(--gold);transform:translateY(-2px);}
+  .c .ic{font-size:26px;margin-bottom:8px;}
+  .c h3{font-size:15px;font-weight:600;margin-bottom:4px;}
+  .c h3 .n{font-family:var(--mono);font-size:11px;color:var(--muted);}
+  .c p{font-size:12.5px;color:var(--dim);}
+  .c .badge{display:inline-block;margin-top:8px;font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(95,214,208,.12);color:var(--cyan);}
+  .c .badge.ml{background:rgba(167,139,255,.12);color:var(--violet);}
+  .foot{text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:36px;}
+</style>
+</head>
+<body>
+<header>
+  <div><div class="logo">AURA</div><div class="logo-sub">사진을 노래로 · a photo studio</div></div>
+  <nav id="nav"></nav>
+</header>
+<main id="main">
+  <div class="home" id="home">
+    <div class="hero">
+      <h1><span class="g">AURA</span></h1>
+      <div class="tag">사진의 아우라를 읽고, 빛을 코치하고, 노래로 바꾼다.</div>
+      <p>탭을 선택하거나 아래 카드를 눌러 시작하세요. 모든 도구가 하나의 앱으로 연결됩니다.</p>
+      <div class="flow"><span class="fs">📷 COACH</span><span class="fs">🔍 READ</span><span class="fs">✨ CRAFT</span><span class="fs">🎵 SING</span><span class="fs">🖼️ IDENTITY</span></div>
+    </div>
+    <div class="cards" id="cards"></div>
+    <div class="foot">practice_vibecode · 로컬 실행. 백엔드(구도·미적) 연동은 backend/ 참고.<br>※ file:// 에서 iframe이 안 열리면 <b>python3 -m http.server</b> 로 폴더를 서빙하세요.</div>
+  </div>
+</main>
+
+<script>
+const TOOLS=[
+  {id:'connected', n:'', ic:'🧠', t:'백엔드 연결 분석', d:'M1·M2 실제 구도·미적 점수(오프라인 폴백)', f:'aura-connected.html', badge:'M1·M2', ml:true},
+  {id:'identity', n:'', ic:'🧬', t:'미적 정체성', d:'취향 벡터·팔레트 시그니처 누적(M6)', f:'aura-identity.html', badge:'M6', ml:true},
+  {id:'app', n:'', ic:'🔍', t:'분석 스튜디오', d:'색·아우라·구도·음악 통합 분석', f:'aura-app.html', badge:'브라우저'},
+  {id:'enhance', n:'②', ic:'✨', t:'프로 재가공', d:'before/after 색·톤·조명 그레이딩', f:'aura-enhance.html', badge:'브라우저'},
+  {id:'card', n:'③', ic:'🖼️', t:'포토-송 카드', d:'사진+파형+노래, PNG 저장', f:'aura-photosong-card.html', badge:'브라우저'},
+  {id:'video', n:'③', ic:'🎬', t:'포토-송 영상', d:'파형 애니메이션, webm 영상 저장', f:'aura-photosong-video.html', badge:'브라우저'},
+  {id:'ml', n:'①', ic:'🧠', t:'ML 백엔드 스펙', d:'구도·미적·재가공 모델 정의', f:'aura-ml-backend-spec.html', badge:'ML', ml:true},
+  {id:'concept', n:'', ic:'📐', t:'컨셉 정의', d:'6기능·3기둥·코어루프', f:'aura-concept.html', badge:'문서'},
+  {id:'pitch', n:'④', ic:'📊', t:'앱 피치', d:'문제·솔루션·시장·로드맵', f:'aura-pitch.html', badge:'문서'},
+];
+const nav=document.getElementById('nav'),cards=document.getElementById('cards'),main=document.getElementById('main'),home=document.getElementById('home');
+let frame=null;
+// home tab
+const homeTab=document.createElement('button');homeTab.className='tab on';homeTab.innerHTML='⌂ 홈';homeTab.onclick=()=>show(null);nav.appendChild(homeTab);
+TOOLS.forEach(t=>{const b=document.createElement('button');b.className='tab';b.innerHTML=`<span class="n">${t.n||''}</span>${t.ic} ${t.t}`;b.dataset.id=t.id;b.onclick=()=>show(t);nav.appendChild(b);
+  const c=document.createElement('div');c.className='c';c.onclick=()=>show(t);c.innerHTML=`<div class="ic">${t.ic}</div><h3>${t.t} <span class="n">${t.n||''}</span></h3><p>${t.d}</p><span class="badge ${t.ml?'ml':''}">${t.badge}</span>`;cards.appendChild(c);});
+function show(t){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  if(!t){homeTab.classList.add('on');home.style.display='block';if(frame){frame.remove();frame=null;}return;}
+  document.querySelector(`.tab[data-id="${t.id}"]`).classList.add('on');home.style.display='none';
+  if(!frame){frame=document.createElement('iframe');main.appendChild(frame);}
+  frame.src=t.f;
+}
+</script>
+</body>
+</html>

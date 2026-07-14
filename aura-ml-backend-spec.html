@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AURA — 백엔드 ML 스펙</title>
+<style>
+  :root{--bg:#0b0910;--surface:rgba(255,255,255,.045);--surface2:rgba(255,255,255,.075);--border:rgba(255,255,255,.10);
+    --text:#f0edf6;--dim:#a49db8;--muted:#605874;--gold:#f5c469;--rose:#ff8fb0;--cyan:#5fd6d0;--violet:#a78bff;
+    --font:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Segoe UI',sans-serif;--serif:'Georgia','Apple SD Gothic Neo',serif;--mono:'SF Mono','Fira Code',ui-monospace,monospace;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:radial-gradient(ellipse 90% 55% at 50% -8%,rgba(167,139,255,.12),transparent 55%),var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.75;max-width:940px;margin:0 auto;padding:44px 22px;}
+  .header{margin-bottom:38px;padding-bottom:26px;border-bottom:1px solid var(--border);}
+  .header .label{font-family:var(--mono);font-size:11px;letter-spacing:.22em;color:var(--violet);text-transform:uppercase;margin-bottom:12px;}
+  .header h1{font-family:var(--serif);font-size:30px;font-weight:600;margin-bottom:8px;}
+  .header h1 span{color:var(--gold);}
+  .header p{font-size:14px;color:var(--dim);max-width:700px;}
+  .header .seq{margin-top:14px;display:flex;gap:6px;flex-wrap:wrap;}
+  .seq .s{font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);color:var(--muted);}
+  .seq .s.on{border-color:var(--violet);color:var(--violet);background:rgba(167,139,255,.1);}
+  .section{margin-bottom:44px;}
+  .section-label{font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--muted);text-transform:uppercase;margin-bottom:8px;}
+  .section-title{font-size:21px;font-weight:700;margin-bottom:12px;}
+  .section p{color:var(--dim);margin-bottom:12px;}
+  .section strong{color:var(--text);}
+
+  .refbox{background:var(--surface2);border:1px solid var(--gold);border-radius:14px;padding:20px 24px;margin-bottom:34px;}
+  .refbox h3{font-size:15px;color:var(--gold);margin-bottom:10px;}
+  .refbox p{color:var(--dim);margin:0;}
+  .refbox .grammar{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px;}
+  .refbox .gr{background:rgba(0,0,0,.3);border-radius:8px;padding:10px;text-align:center;}
+  .refbox .gr .k{font-size:12px;font-weight:600;color:var(--text);}
+  .refbox .gr .d{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:3px;}
+
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .col{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;}
+  .col h4{font-size:13px;font-family:var(--mono);letter-spacing:.05em;margin-bottom:10px;}
+  .col.edge h4{color:var(--cyan);}.col.cloud h4{color:var(--violet);}
+  .col ul{list-style:none;}
+  .col li{font-size:12.5px;color:var(--dim);padding:4px 0 4px 16px;position:relative;}
+  .col.edge li::before{content:'▪';position:absolute;left:0;color:var(--cyan);}
+  .col.cloud li::before{content:'▪';position:absolute;left:0;color:var(--violet);}
+
+  .mod{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:0;margin-bottom:12px;overflow:hidden;}
+  .mod-head{background:var(--surface2);padding:13px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .mod-head .mn{font-family:var(--mono);font-size:11px;color:var(--rose);}
+  .mod-head h4{font-size:15px;font-weight:600;flex:1;}
+  .mod-head .tech{font-family:var(--mono);font-size:10px;color:var(--muted);}
+  .mod-body{padding:14px 20px;}
+  .mod-body p{font-size:13px;color:var(--dim);margin:0 0 8px;}
+  .mod-body .io{font-family:var(--mono);font-size:11px;color:var(--cyan);}
+  .mod-body .io b{color:var(--muted);}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--surface);border-radius:10px;overflow:hidden;}
+  th{text-align:left;padding:10px 13px;font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border);}
+  td{padding:10px 13px;border-bottom:1px solid rgba(42,42,60,.6);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}td:first-child{color:var(--gold);font-weight:600;white-space:nowrap;}
+  .code{background:#08060e;border:1px solid var(--border);border-radius:10px;padding:16px 18px;font-family:var(--mono);font-size:11.5px;line-height:1.7;color:var(--dim);overflow-x:auto;}
+  .code .s{color:var(--cyan);}.code .k{color:var(--violet);}.code .c{color:var(--muted);}.code .n{color:var(--gold);}
+  hr.div{border:none;border-top:1px solid var(--border);margin:30px 0;}
+  @media(max-width:640px){.split{grid-template-columns:1fr;}.refbox .grammar{grid-template-columns:1fr 1fr;}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="label">AURA · Backend ML Spec · practice_vibecode</div>
+  <h1><span>①</span> ML 백엔드로 넘길 것</h1>
+  <p>브라우저에서 못 하는 것 — 명작 학습 기반 <strong>구도 분석·프로 가이드·재가공·리라이팅</strong> — 을 ML 백엔드로 분리 정의한다. 방금 받은 아트북(화조도·Bassano)의 구도 방법론을 모델의 근거 문법으로 삼는다.</p>
+  <div class="seq"><span class="s on">① ML 스펙</span><span class="s">② before/after</span><span class="s">③ 포토-송 카드</span><span class="s">④ 앱 정의서</span></div>
+</div>
+
+<!-- REFERENCE GRAMMAR -->
+<div class="section">
+  <div class="section-label">근거</div>
+  <div class="refbox">
+    <h3>아트북에서 추출한 '구도 문법(Composition Grammar)'</h3>
+    <p>화조도(花鳥圖)와 Bassano의 〈The Way to Calvary〉 분석 페이지가 보여주는 것: 명작은 우연이 아니라 <strong>삼각구도·방향성 흐름·황금구조·초점 위계</strong>라는 반복 문법 위에 서 있다. 이 네 축이 AURA 구도 모델의 라벨 체계가 된다.</p>
+    <div class="grammar">
+      <div class="gr"><div class="k">삼각구도</div><div class="d">triangular mass</div></div>
+      <div class="gr"><div class="k">방향성 흐름</div><div class="d">directional flow · S/대각선</div></div>
+      <div class="gr"><div class="k">황금구조</div><div class="d">golden · 1/3 grid</div></div>
+      <div class="gr"><div class="k">초점 위계</div><div class="d">focal hierarchy</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- WHY BACKEND -->
+<div class="section">
+  <div class="section-label">1 — 경계</div>
+  <div class="section-title">브라우저 vs 백엔드</div>
+  <div class="split">
+    <div class="col edge"><h4>브라우저(엣지)에 남김</h4><ul>
+      <li>색 추출·팔레트 양자화 (F3)</li>
+      <li>밝기·채도·색온도 아우라 (F2)</li>
+      <li>휘도 무게중심·삼분할/황금 오버레이 (F1 기초)</li>
+      <li>기본 색·톤 그레이딩 (F5 기초)</li>
+      <li>이미지→파형→음악 (F6, Web Audio)</li>
+      <li>프라이버시: 원본은 기기에서 우선 처리</li>
+    </ul></div>
+    <div class="col cloud"><h4>ML 백엔드로 넘김</h4><ul>
+      <li>구도 문법 인식 (삼각/흐름/황금/초점)</li>
+      <li>명작 코퍼스 학습 → 미적 스코어링</li>
+      <li>찍기 전 가이드 생성 (장면 인식 기반)</li>
+      <li>프로급 재가공 (스타일·리라이팅)</li>
+      <li>피사체 분리·재배치 제안</li>
+      <li>미적 정체성 개인화 학습</li>
+    </ul></div>
+  </div>
+</div>
+
+<hr class="div">
+
+<!-- MODULES -->
+<div class="section">
+  <div class="section-label">2 — 백엔드 모듈</div>
+  <div class="section-title">6개 모델 파이프라인</div>
+
+  <div class="mod"><div class="mod-head"><span class="mn">M1</span><h4>구도 분석 (Composition Grammar)</h4><span class="tech">Saliency + Segmentation + Depth</span></div>
+    <div class="mod-body"><p>돌출맵(saliency)으로 초점, 분할(segmentation)로 피사체 덩어리, 깊이(depth)로 층위를 얻고 → <b>삼각구도 적합도·방향성 벡터·황금/삼분할 정합·초점 위계</b>를 산출. 아트북 오버레이(삼각형·흐름 화살표)를 자동 생성.</p>
+      <div class="io"><b>in</b> image → <b>out</b> {triangle_fit, flow_vectors[], golden_score, focal_rank[]}</div></div></div>
+
+  <div class="mod"><div class="mod-head"><span class="mn">M2</span><h4>명작 코퍼스 & 미적 스코어링</h4><span class="tech">Aesthetic model (NIMA-style) + fine-tune</span></div>
+    <div class="mod-body"><p>동양 화조도·서양 고전(라벨된 구도 오버레이 포함)으로 파인튜닝한 미적 평가 모델. 사진에 <b>0~10 미적 점수</b> + "왜"(어떤 문법을 지키거나 어겼는지) 설명을 부여.</p>
+      <div class="io"><b>in</b> image → <b>out</b> {aesthetic_score, grammar_violations[], nearest_master[]}</div></div></div>
+
+  <div class="mod"><div class="mod-head"><span class="mn">M3</span><h4>찍기 전 가이드 생성</h4><span class="tech">VLM (scene→guideline)</span></div>
+    <div class="mod-body"><p>실시간 장면/프리뷰를 보고 구도 문법에 맞춰 <b>구체 가이드</b> 생성: "피사체를 우측 1/3선으로", "가지의 대각선을 살려 삼각을 완성", "역광으로 실루엣". AR 오버레이용 좌표까지.</p>
+      <div class="io"><b>in</b> live frame → <b>out</b> {guidelines[], overlay_coords[], target_grade}</div></div></div>
+
+  <div class="mod"><div class="mod-head"><span class="mn">M4</span><h4>프로 재가공 (Enhance/Restyle)</h4><span class="tech">Diffusion img2img + LUT + relight</span></div>
+    <div class="mod-body"><p>미적 점수를 높이는 방향으로 <b>색·톤·조명 재가공</b>. 명작 스타일 LUT + 확산모델 img2img(약한 강도, 원본 보존) + 리라이팅(광원 방향 추정→보정). 항상 before/after로 반환.</p>
+      <div class="io"><b>in</b> image + target_style → <b>out</b> {enhanced_image, edit_layers[], delta_report}</div></div></div>
+
+  <div class="mod"><div class="mod-head"><span class="mn">M5</span><h4>피사체 재배치 제안</h4><span class="tech">Segmentation + inpainting</span></div>
+    <div class="mod-body"><p>초점 피사체를 분리해 <b>황금/삼분할 위치로 옮긴 시안</b>을 인페인팅으로 생성(제안용). 크롭 재구성도 함께.</p>
+      <div class="io"><b>in</b> image + focal_mask → <b>out</b> {recompose_variants[]}</div></div></div>
+
+  <div class="mod"><div class="mod-head"><span class="mn">M6</span><h4>미적 정체성 학습</h4><span class="tech">Embedding + user profile</span></div>
+    <div class="mod-body"><p>사용자 사진들의 색·구도·아우라 임베딩을 누적해 <b>개인 취향 벡터</b>를 학습. 코치·재가공·음악을 개인화. (Virtual ME 파동 정체성과 연결)</p>
+      <div class="io"><b>in</b> user_library → <b>out</b> {taste_vector, palette_signature, aura_baseline}</div></div></div>
+</div>
+
+<hr class="div">
+
+<!-- CONTRACT -->
+<div class="section">
+  <div class="section-label">3 — API 계약</div>
+  <div class="section-title">프론트가 받는 표준 응답</div>
+  <p>프론트(현 프로토타입)는 이 JSON을 받아 오버레이·가이드·before/after·음악에 그대로 매핑한다.</p>
+  <div class="code">
+<span class="c">// POST /api/analyze  (multipart image) →</span><br>
+{<br>
+&nbsp;&nbsp;<span class="s">"composition"</span>:{<span class="s">"triangle_fit"</span>:<span class="n">0.82</span>,<span class="s">"golden_score"</span>:<span class="n">0.71</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="s">"flow"</span>:[{<span class="s">"from"</span>:[.2,.8],<span class="s">"to"</span>:[.7,.3],<span class="s">"type"</span>:<span class="s">"diagonal"</span>}],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="s">"focal"</span>:[{<span class="s">"xy"</span>:[.63,.38],<span class="s">"weight"</span>:<span class="n">0.9</span>}]},<br>
+&nbsp;&nbsp;<span class="s">"aesthetic"</span>:{<span class="s">"score"</span>:<span class="n">7.4</span>,<span class="s">"nearest_master"</span>:<span class="s">"화조도-삼각구도"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="s">"violations"</span>:[<span class="s">"피사체 중앙 정체"</span>]},<br>
+&nbsp;&nbsp;<span class="s">"aura"</span>:{<span class="s">"score"</span>:<span class="n">-0.3</span>,<span class="s">"bright"</span>:<span class="n">0.28</span>,<span class="s">"warm"</span>:<span class="n">-0.1</span>},<br>
+&nbsp;&nbsp;<span class="s">"palette"</span>:[<span class="s">"#1a2340"</span>,<span class="s">"#3a5f8a"</span>,…],<br>
+&nbsp;&nbsp;<span class="s">"guidelines"</span>:[<span class="s">"피사체를 우측 1/3선으로 옮겨 삼각을 완성"</span>],<br>
+&nbsp;&nbsp;<span class="s">"enhanced_url"</span>:<span class="s">"…"</span>, <span class="s">"music_seed"</span>:{<span class="s">"root"</span>:<span class="n">50</span>,<span class="s">"mode"</span>:<span class="s">"minor→major"</span>,<span class="s">"arc"</span>:<span class="s">"happy_ending"</span>}<br>
+}
+  </div>
+</div>
+
+<!-- STACK -->
+<div class="section">
+  <div class="section-label">4 — 스택 & 단계</div>
+  <table>
+    <thead><tr><th>모듈</th><th>모델 후보</th><th>단계</th></tr></thead>
+    <tbody>
+      <tr><td>M1 구도</td><td>U²-Net(saliency)·SAM(seg)·Depth-Anything</td><td>MVP</td></tr>
+      <tr><td>M2 미적</td><td>NIMA/CLIP-aesthetic + 명작 파인튜닝</td><td>MVP</td></tr>
+      <tr><td>M3 가이드</td><td>경량 VLM (장면→텍스트+좌표)</td><td>Scale</td></tr>
+      <tr><td>M4 재가공</td><td>SDXL img2img(저강도)+LUT+relight net</td><td>Scale</td></tr>
+      <tr><td>M5 재배치</td><td>SAM + LaMa inpainting</td><td>Expand</td></tr>
+      <tr><td>M6 정체성</td><td>임베딩 축적 + 개인 프로파일</td><td>Expand</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:14px;font-size:13px;"><strong>프라이버시:</strong> 원본은 기기 우선 처리·전송 최소화. 백엔드 전송 시 동의·단기보관·학습 옵트인 분리 (Virtual ME 법률 설계 준수).</p>
+</div>
+</body>
+</html>

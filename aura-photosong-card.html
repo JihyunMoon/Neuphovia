@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AURA — 포토-송 카드</title>
+<style>
+  :root{--bg:#0b0910;--panel:rgba(255,255,255,.045);--border:rgba(255,255,255,.10);--text:#f0edf6;--dim:#a49db8;--muted:#605874;
+    --gold:#f5c469;--rose:#ff8fb0;--cyan:#5fd6d0;--violet:#a78bff;
+    --font:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Segoe UI',sans-serif;--serif:'Georgia','Apple SD Gothic Neo',serif;--mono:'SF Mono','Fira Code',ui-monospace,monospace;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:radial-gradient(ellipse 90% 50% at 50% -5%,rgba(255,143,176,.10),transparent 55%),var(--bg);color:var(--text);font-family:var(--font);padding:20px 14px;}
+  .wrap{max-width:820px;margin:0 auto;}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+  .top{text-align:center;}
+  .top .kick{font-family:var(--mono);font-size:10px;letter-spacing:.3em;color:var(--muted);text-transform:uppercase;}
+  .top h1{font-family:var(--serif);font-size:24px;font-weight:600;margin-top:6px;}
+  .top h1 .g{background:linear-gradient(90deg,var(--gold),var(--rose),var(--violet));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  .top p{font-size:13px;color:var(--dim);margin-top:4px;}
+  .bar{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin:16px 0;}
+  .btn{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:9px 13px;color:var(--dim);font-size:12.5px;cursor:pointer;font-family:var(--mono);transition:.15s;}
+  .btn:hover{border-color:rgba(255,255,255,.3);color:var(--text);}
+  .btn.primary{background:linear-gradient(90deg,var(--gold),var(--rose));border-color:transparent;color:#1a1014;font-weight:700;}
+  input[type=file]{display:none;}
+  .cardwrap{display:flex;flex-direction:column;align-items:center;gap:14px;}
+  .cardbox{position:relative;width:360px;max-width:92vw;border-radius:22px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+  #card{display:block;width:100%;height:auto;}
+  .empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);gap:10px;background:#0e0b16;}
+  .empty .big{font-size:34px;}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+  .foot{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:16px;text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2 class="sr-only">사진과 그 사진에서 생성된 파형·노래를 하나의 공유용 숏폼 카드로 만드는 도구</h2>
+  <div class="top">
+    <div class="kick">AURA · Photo-Song Card · sharable short-form</div>
+    <h1><span class="g">③</span> 포토-송 카드</h1>
+    <p>사진 + 파형 + 그 사진의 노래 = 하나의 공유 카드. 재생하고, 이미지로 저장하세요.</p>
+  </div>
+  <div class="bar">
+    <label class="btn primary" for="file">📁 사진 올리기</label>
+    <input type="file" id="file" accept="image/*">
+    <button class="btn" data-s="sunset">🌅 일몰</button>
+    <button class="btn" data-s="night">🌃 밤거리</button>
+    <button class="btn" data-s="forest">🌲 숲</button>
+  </div>
+  <div class="cardwrap">
+    <div class="cardbox">
+      <canvas id="card" width="720" height="1280"></canvas>
+      <div class="empty" id="empty"><div class="big">🖼️</div><div>사진을 올리거나 샘플을 선택</div></div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="play">▶ 노래 재생</button>
+      <button class="btn" id="save">⬇ 이미지로 저장</button>
+      <button class="btn" id="retitle">↻ 다른 제목</button>
+    </div>
+  </div>
+  <p class="foot">파형은 이미지 밝기에서 추출 · 노래는 아우라 기반(어두우면 해피엔딩) · 저장은 실제 PNG 다운로드. 영상(mp4) 렌더는 백엔드 단계.</p>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const card=$('card'),cx=card.getContext('2d');
+const CW=720,CH=1280;
+let img=null,analysis=null,wave=[],title='',tag='';
+
+function genSample(kind){const c=document.createElement('canvas');c.width=480;c.height=340;const g=c.getContext('2d');
+  if(kind==='sunset'){const gr=g.createLinearGradient(0,0,0,340);gr.addColorStop(0,'#2a1a4a');gr.addColorStop(.5,'#e85c3a');gr.addColorStop(.75,'#ffb347');gr.addColorStop(1,'#3a2416');g.fillStyle=gr;g.fillRect(0,0,480,340);g.fillStyle='rgba(255,240,180,.9)';g.beginPath();g.arc(330,190,32,0,7);g.fill();g.fillStyle='#1a0f14';g.fillRect(0,290,480,50);}
+  else if(kind==='night'){g.fillStyle='#070a16';g.fillRect(0,0,480,340);for(let i=0;i<90;i++){g.fillStyle=`rgba(${120+Math.random()*130},${140+Math.random()*100},${200+Math.random()*55},${.4+Math.random()*.6})`;g.fillRect(Math.random()*480,160+Math.random()*180,2+Math.random()*3,2+Math.random()*3);}g.fillStyle='rgba(90,130,255,.2)';g.fillRect(0,130,480,40);g.fillStyle='#0a0e1e';g.fillRect(0,0,480,130);}
+  else{const gr=g.createLinearGradient(0,0,0,340);gr.addColorStop(0,'#123a24');gr.addColorStop(1,'#0a1f14');g.fillStyle=gr;g.fillRect(0,0,480,340);for(let i=0;i<44;i++){g.strokeStyle=`rgba(${40+Math.random()*60},${90+Math.random()*80},${50+Math.random()*40},.6)`;g.lineWidth=3+Math.random()*8;g.beginPath();const x=Math.random()*480;g.moveTo(x,340);g.lineTo(x+(Math.random()-.5)*40,Math.random()*150);g.stroke();}}
+  const im=new Image();im.src=c.toDataURL();return im;}
+
+function rgb2hsl(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b);let h,s,l=(mx+mn)/2;if(mx===mn){h=s=0;}else{const d=mx-mn;s=l>.5?d/(2-mx-mn):d/(mx+mn);switch(mx){case r:h=(g-b)/d+(g<b?6:0);break;case g:h=(b-r)/d+2;break;default:h=(r-g)/d+4;}h/=6;}return[h*360,s,l];}
+function hex(r,g,b){return '#'+[r,g,b].map(x=>Math.round(x).toString(16).padStart(2,'0')).join('');}
+
+function loadImg(im){img=im;$('empty').style.display='none';analyze();}
+$('file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const im=new Image();im.onload=()=>loadImg(im);im.src=ev.target.result;};r.readAsDataURL(f);});
+document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{const im=genSample(b.dataset.s);im.onload=()=>loadImg(im);if(im.complete)loadImg(im);});
+
+const TITLES={pos:['빛이 머문 자리','반짝이던 그 순간','따뜻한 하루의 결','오래 남을 오늘'],neg:['어둠을 지나 빛으로','고요가 감싼 밤','조용히, 그러나 분명히','끝내 밝아오는'],neu:['잔잔한 오후','머무는 마음','흐르는 시간','숨을 고르는 결']};
+function pickTitle(){const a=analysis.aura;const pool=a>0.25?TITLES.pos:a<-0.25?TITLES.neg:TITLES.neu;title=pool[Math.floor(Math.random()*pool.length)];}
+
+function analyze(){
+  const sw=100,sh=Math.round(100*(img.height/img.width))||100;const oc=document.createElement('canvas');oc.width=sw;oc.height=sh;const o=oc.getContext('2d');o.drawImage(img,0,0,sw,sh);
+  let data;try{data=o.getImageData(0,0,sw,sh).data;}catch(e){return;}
+  const bins={};let sB=0,sS=0,sW=0,n=0;
+  for(let i=0;i<data.length;i+=4){const r=data[i],g=data[i+1],b=data[i+2];const key=(r>>5)+'_'+(g>>5)+'_'+(b>>5);if(!bins[key])bins[key]={r:0,g:0,b:0,c:0};bins[key].r+=r;bins[key].g+=g;bins[key].b+=b;bins[key].c++;const[h,s,l]=rgb2hsl(r,g,b);sB+=l;sS+=s;sW+=(r-b)/255;n++;}
+  const palette=Object.values(bins).sort((a,b)=>b.c-a.c).slice(0,5).map(o=>({r:Math.round(o.r/o.c),g:Math.round(o.g/o.c),b:Math.round(o.b/o.c)}));
+  const bright=sB/n,sat=sS/n,warm=sW/n;const[dh]=rgb2hsl(palette[0].r,palette[0].g,palette[0].b);
+  const aura=Math.max(-1,Math.min(1,(bright-0.45)*1.6+warm*0.9+(sat-0.3)*0.6));
+  // waveform from image columns (brightness)
+  wave=[];const cols=90;for(let c=0;c<cols;c++){let s=0,cnt=0;const x=Math.floor(c/cols*sw);for(let y=0;y<sh;y++){const i=(y*sw+x)*4;s+=(0.299*data[i]+0.587*data[i+1]+0.114*data[i+2])/255;cnt++;}wave.push(s/cnt);}
+  const hn=['빨강','주황','노랑','연두','초록','청록','파랑','보라','자주'][Math.floor(((dh+20)%360)/40)];
+  analysis={palette,bright,sat,warm,aura,domHue:dh};tag='#'+hn+'_'+(aura>0.25?'bright':aura<-0.25?'deep':'calm');
+  pickTitle();drawCard();
+}
+
+function drawCard(){const a=analysis;
+  // bg
+  const bg=cx.createLinearGradient(0,0,0,CH);bg.addColorStop(0,'#100b1a');bg.addColorStop(1,'#07050e');cx.fillStyle=bg;cx.fillRect(0,0,CW,CH);
+  // photo area (top) with rounded top corners
+  const pad=48,pw=CW-pad*2,ph=Math.round(pw*(img.height/img.width));const py=70;const phc=Math.min(ph,760);
+  cx.save();roundRect(cx,pad,py,pw,phc,20);cx.clip();
+  // cover-fit
+  const ar=img.width/img.height,cr=pw/phc;let dw,dh,dx,dy;if(ar>cr){dh=phc;dw=phc*ar;dx=pad-(dw-pw)/2;dy=py;}else{dw=pw;dh=pw/ar;dx=pad;dy=py-(dh-phc)/2;}cx.drawImage(img,dx,dy,dw,dh);
+  // gradient fade bottom
+  const fg=cx.createLinearGradient(0,py+phc-200,0,py+phc);fg.addColorStop(0,'rgba(16,11,26,0)');fg.addColorStop(1,'rgba(16,11,26,.92)');cx.fillStyle=fg;cx.fillRect(pad,py+phc-200,pw,200);
+  cx.restore();
+  // title over photo bottom
+  cx.textAlign='left';cx.fillStyle='#fff';cx.font='600 46px Georgia, serif';cx.fillText(title,pad+8,py+phc-44);
+  cx.fillStyle='rgba(245,196,105,.95)';cx.font='500 22px monospace';cx.fillText(tag,pad+8,py+phc-14);
+  // waveform strip
+  const wy=py+phc+70,wh=150,wx=pad,ww=pw;
+  const[pr,pg,pb]=[a.palette[0].r,a.palette[0].g,a.palette[0].b];
+  cx.strokeStyle=hex(pr+40,pg+40,pb+60);cx.lineWidth=3;cx.lineJoin='round';
+  cx.beginPath();for(let i=0;i<wave.length;i++){const x=wx+i/(wave.length-1)*ww;const amp=(wave[i]-0.5)*wh*1.4;const y=wy+wh/2-amp;i?cx.lineTo(x,y):cx.moveTo(x,y);}cx.stroke();
+  // mirrored glow bars
+  cx.globalCompositeOperation='lighter';for(let i=0;i<wave.length;i+=2){const x=wx+i/(wave.length-1)*ww;const h=wave[i]*wh*0.9;cx.fillStyle=`rgba(${pr+60},${pg+60},${pb+80},.25)`;cx.fillRect(x-1,wy+wh/2-h/2,2,h);}cx.globalCompositeOperation='source-over';
+  // aura + palette row
+  const ry=wy+wh+70;
+  // aura chip
+  const auraLbl=a.aura>0.25?'긍정 · 밝음':a.aura<-0.25?'해피엔딩 아크':'잔잔';
+  cx.fillStyle='rgba(255,255,255,.08)';roundRect(cx,pad,ry-30,300,44,22);cx.fill();
+  cx.fillStyle=a.aura>0.25?'#f5c469':a.aura<-0.25?'#a78bff':'#5fd6d0';cx.beginPath();cx.arc(pad+28,ry-8,9,0,7);cx.fill();
+  cx.fillStyle='#eee';cx.font='500 24px sans-serif';cx.textAlign='left';cx.fillText('아우라 · '+auraLbl,pad+48,ry-0);
+  // palette dots
+  a.palette.forEach((p,i)=>{cx.fillStyle=hex(p.r,p.g,p.b);cx.beginPath();cx.arc(CW-pad-18-i*46,ry-8,17,0,7);cx.fill();cx.strokeStyle='rgba(255,255,255,.15)';cx.stroke();});
+  // footer brand
+  cx.textAlign='center';cx.fillStyle='rgba(255,255,255,.5)';cx.font='500 26px Georgia, serif';cx.fillText('AURA', CW/2, CH-70);
+  cx.fillStyle='rgba(255,255,255,.28)';cx.font='400 18px monospace';cx.fillText('사진을 노래로', CW/2, CH-40);
+}
+function roundRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+
+// ---- song (happy-ending arc) ----
+let actx=null,master=null,playing=false;
+function m2f(m){return 440*Math.pow(2,(m-69)/12);}
+function ensure(){if(!actx){actx=new(window.AudioContext||window.webkitAudioContext)();master=actx.createGain();master.gain.value=0.22;const f=actx.createBiquadFilter();f.type='lowpass';f.frequency.value=2200;const dl=actx.createDelay();dl.delayTime.value=0.3;const fb=actx.createGain();fb.gain.value=0.28;master.connect(f);f.connect(actx.destination);master.connect(dl);dl.connect(fb);fb.connect(dl);dl.connect(actx.destination);}else actx.resume();}
+function tone(fr,t,dur,vol,type){const o=actx.createOscillator(),g=actx.createGain();o.type=type||'sine';o.frequency.value=fr;o.connect(g);g.connect(master);g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(vol,t+0.03);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.start(t);o.stop(t+dur+0.05);}
+function playSong(){if(!analysis)return;ensure();const a=analysis,t=actx.currentTime;const root=48+Math.floor(((a.domHue)%360)/360*10);const tempo=0.5-a.sat*0.18;const dark=a.aura<-0.1;const minor=[0,2,3,7,10,12],major=[0,2,4,7,9,12,16];let time=t;const p1=dark?minor:major;
+  for(let i=0;i<6;i++){tone(m2f(root+p1[i%p1.length]),time,tempo*2.4,0.12,dark?'triangle':'sine');time+=tempo;}
+  tone(m2f(root-12),t,tempo*8,0.10,'sine');tone(m2f(root-5),t,tempo*8,0.08,'sine');
+  for(let i=0;i<6;i++){tone(m2f(root+(dark?minor:major)[i%6]+7),time,tempo*1.8,0.11,'sine');time+=tempo*0.8;}
+  const gr=root+12,chord=[0,4,7,12,16],rt=time+0.1;chord.forEach(s=>{tone(m2f(gr+s),rt,2.8,0.13,'sine');tone(m2f(gr+s+12),rt,2.6,0.06,'triangle');});
+  [0,4,7,12,16,19].forEach((s,i)=>tone(m2f(gr+s),rt+i*0.12,1.6,0.12,'sine'));tone(m2f(gr-24),rt,3,0.12,'sine');
+  playing=true;$('play').textContent='♪ 재생 중…';const total=(time-t)+3.2;setTimeout(()=>{playing=false;$('play').textContent='▶ 노래 재생';},total*1000);}
+$('play').onclick=()=>{if(!analysis){document.querySelector('[data-s]').click();setTimeout(()=>playSong(),400);return;}if(!playing)playSong();};
+$('retitle').onclick=()=>{if(analysis){pickTitle();drawCard();}};
+$('save').onclick=()=>{if(!analysis)return;const a=document.createElement('a');a.download='aura_photosong.png';a.href=card.toDataURL('image/png');a.click();};
+</script>
+</body>
+</html>

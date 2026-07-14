@@ -1,0 +1,18 @@
+# 개인 참조 사진 (아트북 촬영) — 공개 저장소 제외
+IMG_*.png
+IMG_*.jpg
+IMG_*.jpeg
+
+# 파이썬
+backend/.venv/
+__pycache__/
+*.pyc
+
+# OS / 에디터
+.DS_Store
+.vscode/
+.idea/
+
+# 생성물
+*.webm
+aura_photosong.png

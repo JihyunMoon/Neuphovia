@@ -1,0 +1,9 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+opencv-contrib-python>=4.9   # saliency 모듈 포함(contrib)
+numpy>=1.26
+pillow>=10.0
+python-multipart>=0.0.9
+# 선택(CLIP-aesthetic 사용 시):
+# torch
+# open_clip_torch

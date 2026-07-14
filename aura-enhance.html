@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AURA — before/after 재가공</title>
+<style>
+  :root{--bg:#0b0910;--panel:rgba(255,255,255,.045);--border:rgba(255,255,255,.10);--text:#f0edf6;--dim:#a49db8;--muted:#605874;
+    --gold:#f5c469;--rose:#ff8fb0;--cyan:#5fd6d0;--violet:#a78bff;
+    --font:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Segoe UI',sans-serif;--serif:'Georgia','Apple SD Gothic Neo',serif;--mono:'SF Mono','Fira Code',ui-monospace,monospace;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:radial-gradient(ellipse 90% 50% at 50% -5%,rgba(245,196,105,.10),transparent 55%),var(--bg);color:var(--text);font-family:var(--font);padding:20px 14px;}
+  .wrap{max-width:1000px;margin:0 auto;}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+  .top .kick{font-family:var(--mono);font-size:10px;letter-spacing:.3em;color:var(--muted);text-transform:uppercase;}
+  .top h1{font-family:var(--serif);font-size:24px;font-weight:600;margin-top:6px;}
+  .top h1 .g{background:linear-gradient(90deg,var(--gold),var(--rose));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  .top p{font-size:13px;color:var(--dim);margin-top:4px;}
+  .bar{display:flex;gap:7px;flex-wrap:wrap;margin:14px 0;}
+  .btn{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:9px 13px;color:var(--dim);font-size:12.5px;cursor:pointer;font-family:var(--mono);transition:.15s;}
+  .btn:hover{border-color:rgba(255,255,255,.3);color:var(--text);}
+  .btn.primary{background:linear-gradient(90deg,var(--gold),var(--rose));border-color:transparent;color:#1a1014;font-weight:700;}
+  input[type=file]{display:none;}
+  .grid{display:grid;grid-template-columns:1fr 268px;gap:14px;}
+  @media(max-width:820px){.grid{grid-template-columns:1fr;}}
+  .stage{position:relative;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:#05040a;aspect-ratio:1/0.72;cursor:ew-resize;user-select:none;}
+  canvas{display:block;width:100%;height:100%;}
+  .tagB,.tagA{position:absolute;top:12px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;padding:4px 9px;border-radius:20px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);pointer-events:none;}
+  .tagB{left:12px;color:var(--dim);}.tagA{right:12px;color:var(--gold);}
+  .empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);gap:10px;}
+  .empty .big{font-size:34px;}
+  .side{display:flex;flex-direction:column;gap:12px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
+  .panel h3{font-size:10px;font-family:var(--mono);letter-spacing:.16em;color:var(--muted);text-transform:uppercase;margin-bottom:10px;}
+  .strength{display:flex;align-items:center;gap:10px;}
+  .strength input{flex:1;-webkit-appearance:none;height:5px;border-radius:3px;background:linear-gradient(90deg,var(--border),var(--gold));outline:none;cursor:pointer;}
+  .strength input::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 0 8px var(--gold);cursor:pointer;}
+  .strength .v{font-family:var(--mono);font-size:13px;color:var(--gold);width:42px;text-align:right;}
+  .edits{display:flex;flex-direction:column;gap:7px;}
+  .edit{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;}
+  .edit .nm{color:var(--dim);}
+  .edit .dv{font-family:var(--mono);font-size:12px;color:var(--cyan);}
+  .edit .dv.up{color:var(--gold);}
+  .foot{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:14px;}
+  .hint{font-size:11px;color:var(--muted);font-family:var(--mono);text-align:center;margin-top:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2 class="sr-only">사진을 프로급으로 색·톤·조명 재가공하고 before/after 슬라이더로 비교하는 프리뷰</h2>
+  <div class="top">
+    <div class="kick">AURA · Enhance · before / after</div>
+    <h1><span class="g">②</span> 프로 재가공 프리뷰</h1>
+    <p>사진을 분석해 노출·대비·채도·화이트밸런스·조명을 자동 그레이딩. 슬라이더를 드래그해 원본과 비교하세요.</p>
+  </div>
+  <div class="bar">
+    <label class="btn primary" for="file">📁 사진 올리기</label>
+    <input type="file" id="file" accept="image/*">
+    <button class="btn" data-s="sunset">🌅 일몰</button>
+    <button class="btn" data-s="night">🌃 밤거리</button>
+    <button class="btn" data-s="forest">🌲 숲</button>
+    <button class="btn" data-s="flat">🌫️ 밋밋한 사진</button>
+  </div>
+  <div class="grid">
+    <div class="stage" id="stage">
+      <canvas id="cv"></canvas>
+      <div class="tagB">BEFORE</div><div class="tagA">AFTER · AURA</div>
+      <div class="empty" id="empty"><div class="big">🖼️</div><div>사진을 올리거나 샘플을 선택하세요</div></div>
+    </div>
+    <div class="side">
+      <div class="panel"><h3>재가공 강도</h3>
+        <div class="strength"><input type="range" id="strength" min="0" max="100" value="100"><span class="v" id="sv">100%</span></div>
+      </div>
+      <div class="panel"><h3>적용된 보정 <span id="ascore" style="color:var(--gold)"></span></h3>
+        <div class="edits" id="edits"><span class="hint" style="text-align:left">사진을 분석하세요</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="hint">← 드래그하여 BEFORE / AFTER 비교 →</div>
+  <p class="foot">브라우저 내 실제 픽셀 그레이딩 · 노출/대비/채도/화이트밸런스(gray-world)/섀도우 리프트/시네마틱 스플릿톤/비네트. 확산모델 재가공은 M4 백엔드 단계.</p>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const cv=$('cv'),ctx=cv.getContext('2d');
+let W=0,H=0,DPR=Math.min(2,window.devicePixelRatio||1);
+function resize(){const r=cv.getBoundingClientRect();W=r.width;H=r.height;cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);if(offBefore)render();}
+window.addEventListener('resize',resize);
+
+// sample gen
+function genSample(kind){const c=document.createElement('canvas');c.width=480;c.height=340;const g=c.getContext('2d');
+  if(kind==='sunset'){const gr=g.createLinearGradient(0,0,0,340);gr.addColorStop(0,'#2a1a4a');gr.addColorStop(.5,'#e85c3a');gr.addColorStop(.75,'#ffb347');gr.addColorStop(1,'#3a2416');g.fillStyle=gr;g.fillRect(0,0,480,340);g.fillStyle='rgba(255,240,180,.9)';g.beginPath();g.arc(330,190,32,0,7);g.fill();g.fillStyle='#1a0f14';g.fillRect(0,290,480,50);}
+  else if(kind==='night'){g.fillStyle='#070a16';g.fillRect(0,0,480,340);for(let i=0;i<80;i++){g.fillStyle=`rgba(${120+Math.random()*130},${140+Math.random()*100},${200+Math.random()*55},${.4+Math.random()*.6})`;g.fillRect(Math.random()*480,170+Math.random()*170,2+Math.random()*3,2+Math.random()*3);}g.fillStyle='rgba(90,130,255,.2)';g.fillRect(0,140,480,40);g.fillStyle='#0a0e1e';g.fillRect(0,0,480,140);}
+  else if(kind==='forest'){const gr=g.createLinearGradient(0,0,0,340);gr.addColorStop(0,'#123a24');gr.addColorStop(1,'#0a1f14');g.fillStyle=gr;g.fillRect(0,0,480,340);for(let i=0;i<40;i++){g.strokeStyle=`rgba(${40+Math.random()*60},${90+Math.random()*80},${50+Math.random()*40},.6)`;g.lineWidth=3+Math.random()*8;g.beginPath();const x=Math.random()*480;g.moveTo(x,340);g.lineTo(x+(Math.random()-.5)*40,Math.random()*150);g.stroke();}}
+  else{g.fillStyle='#8a8c86';g.fillRect(0,0,480,340);const gr=g.createLinearGradient(0,0,480,340);gr.addColorStop(0,'#9a9690');gr.addColorStop(1,'#787c82');g.fillStyle=gr;g.fillRect(0,0,480,340);g.fillStyle='rgba(140,130,120,.5)';g.fillRect(140,120,180,120);}
+  const im=new Image();im.src=c.toDataURL();return im;}
+
+let img=null,offBefore=null,offAfter=null,analysis=null,strength=1,divider=0.5;
+function loadImg(im){img=im;$('empty').style.display='none';process();}
+$('file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const im=new Image();im.onload=()=>loadImg(im);im.src=ev.target.result;};r.readAsDataURL(f);});
+document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{const im=genSample(b.dataset.s);im.onload=()=>loadImg(im);if(im.complete)loadImg(im);});
+
+function process(){
+  const maxD=900;let iw=img.width,ih=img.height;const sc=Math.min(1,maxD/Math.max(iw,ih));iw=Math.round(iw*sc);ih=Math.round(ih*sc);
+  offBefore=document.createElement('canvas');offBefore.width=iw;offBefore.height=ih;const ob=offBefore.getContext('2d');ob.drawImage(img,0,0,iw,ih);
+  const src=ob.getImageData(0,0,iw,ih);const d=src.data;
+  // analyze: brightness, sat, warm, channel avgs
+  let sB=0,sS=0,sW=0,aR=0,aG=0,aB=0,n=0;
+  for(let i=0;i<d.length;i+=4){const r=d[i],g=d[i+1],b=d[i+2];aR+=r;aG+=g;aB+=b;const mx=Math.max(r,g,b)/255,mn=Math.min(r,g,b)/255;const l=(mx+mn)/2;sB+=l;sS+=(mx===mn)?0:(l>.5?(mx-mn)/(2-mx-mn):(mx-mn)/(mx+mn));sW+=(r-b)/255;n++;}
+  const bright=sB/n,sat=sS/n,warm=sW/n;aR/=n;aG/=n;aB/=n;const gray=(aR+aG+aB)/3;
+  analysis={bright,sat,warm,aR,aG,aB,gray};
+  // targets
+  const expo=Math.max(0.85,Math.min(1.7,0.52/Math.max(bright,0.05)));
+  const contrast=1.13;
+  const satMult=Math.max(1,Math.min(1.5,1+(0.34-sat)*0.9));
+  const wbAmt=Math.min(0.4,Math.abs(warm)>0.05?0.38:0.15);
+  const shadow=bright<0.4?0.14:0.05;
+  const split=0.06, vig=0.28;
+  analysis.p={expo,contrast,satMult,wbAmt,shadow,split,vig};
+  // build after
+  offAfter=document.createElement('canvas');offAfter.width=iw;offAfter.height=ih;const oa=offAfter.getContext('2d');
+  const out=oa.createImageData(iw,ih);const o=out.data;
+  const wbR=1+(gray/aR-1)*wbAmt, wbG=1+(gray/aG-1)*wbAmt, wbB=1+(gray/aB-1)*wbAmt;
+  const cx=iw/2,cy=ih/2,maxr=Math.hypot(cx,cy);
+  for(let y=0;y<ih;y++)for(let x=0;x<iw;x++){const i=(y*iw+x)*4;
+    let r=d[i]/255,g=d[i+1]/255,b=d[i+2]/255;
+    // white balance
+    r*=wbR;g*=wbG;b*=wbB;
+    // exposure
+    r*=expo;g*=expo;b*=expo;
+    // contrast around 0.5
+    r=(r-0.5)*contrast+0.5;g=(g-0.5)*contrast+0.5;b=(b-0.5)*contrast+0.5;
+    // saturation via luminance
+    const lum=0.299*r+0.587*g+0.114*b;r=lum+(r-lum)*satMult;g=lum+(g-lum)*satMult;b=lum+(b-lum)*satMult;
+    // shadow lift
+    const lift=shadow*(1-lum)*(1-lum);r+=lift;g+=lift;b+=lift;
+    // split tone: warm highlights, cool shadows
+    const hl=Math.max(0,lum-0.5)*2, sh=Math.max(0,0.5-lum)*2;
+    r+=split*hl - split*0.3*sh; b+=split*sh - split*0.4*hl; g+=split*0.1*hl;
+    // vignette
+    const vf=1 - vig*Math.pow(Math.hypot(x-cx,y-cy)/maxr,2.2);
+    r*=vf;g*=vf;b*=vf;
+    o[i]=Math.max(0,Math.min(255,r*255));o[i+1]=Math.max(0,Math.min(255,g*255));o[i+2]=Math.max(0,Math.min(255,b*255));o[i+3]=255;
+  }
+  oa.putImageData(out,0,0);
+  renderEdits();render();
+}
+function renderEdits(){const p=analysis.p;const a=analysis;
+  const rows=[
+    ['노출 Exposure','+'+Math.round((p.expo-1)*100)+'%',true],
+    ['대비 Contrast','+'+Math.round((p.contrast-1)*100)+'%',true],
+    ['채도 Saturation','+'+Math.round((p.satMult-1)*100)+'%',true],
+    ['화이트밸런스', a.warm>0.05?'따뜻→중립':a.warm<-0.05?'차갑게→중립':'미세보정',false],
+    ['섀도우 리프트','+'+Math.round(p.shadow*100),false],
+    ['시네마틱 스플릿톤','ON',false],
+    ['비네트 Vignette','ON',false],
+  ];
+  $('edits').innerHTML=rows.map(r=>`<div class="edit"><span class="nm">${r[0]}</span><span class="dv ${r[2]?'up':''}">${r[1]}</span></div>`).join('');
+  // aesthetic score estimate (heuristic): closeness to target bright/sat
+  const score=(7 + (1-Math.abs(0.52-a.bright)*2) + (a.sat>0.2?0.5:0)).toFixed(1);
+  $('ascore').textContent='미적 '+Math.min(9.5,score)+'→'+Math.min(9.8,(+score+1.1)).toFixed(1);
+}
+function fit(iw,ih){const ar=iw/ih,cr=W/H;let dw,dh,dx,dy;if(ar>cr){dw=W;dh=W/ar;dx=0;dy=(H-dh)/2;}else{dh=H;dw=H*ar;dy=0;dx=(W-dw)/2;}return{dw,dh,dx,dy};}
+function render(){if(!offBefore)return;ctx.clearRect(0,0,W,H);const{dw,dh,dx,dy}=fit(offBefore.width,offBefore.height);
+  // after full, then before clipped to left of divider
+  // apply strength: blend before/after by drawing after at globalAlpha=strength over before? better: precomposite. We'll draw after with strength blend:
+  ctx.drawImage(offBefore,dx,dy,dw,dh);
+  ctx.save();ctx.globalAlpha=strength;ctx.drawImage(offAfter,dx,dy,dw,dh);ctx.restore();
+  // now left of divider show pure BEFORE
+  const divX=dx+dw*divider;
+  ctx.save();ctx.beginPath();ctx.rect(dx,dy,dw*divider,dh);ctx.clip();ctx.drawImage(offBefore,dx,dy,dw,dh);ctx.restore();
+  // divider line + handle
+  ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(divX,dy);ctx.lineTo(divX,dy+dh);ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.95)';ctx.beginPath();ctx.arc(divX,dy+dh/2,11,0,7);ctx.fill();ctx.fillStyle='#1a1014';ctx.font='11px monospace';ctx.textAlign='center';ctx.fillText('⇄',divX,dy+dh/2+4);
+}
+// divider drag
+const stage=$('stage');let drag=false;
+function setDiv(e){const r=cv.getBoundingClientRect();const{dw,dx}=fit(offBefore?offBefore.width:1,offBefore?offBefore.height:1);const mx=e.clientX-r.left;divider=Math.max(0,Math.min(1,(mx-dx)/dw));render();}
+stage.addEventListener('pointerdown',e=>{if(!offBefore)return;drag=true;stage.setPointerCapture(e.pointerId);setDiv(e);});
+stage.addEventListener('pointermove',e=>{if(drag)setDiv(e);});
+stage.addEventListener('pointerup',()=>drag=false);
+$('strength').addEventListener('input',e=>{strength=e.target.value/100;$('sv').textContent=e.target.value+'%';render();});
+
+resize();
+</script>
+</body>
+</html>

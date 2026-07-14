@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AURA — 앱 컨셉 정의</title>
+<style>
+  :root{--bg:#0b0910;--surface:rgba(255,255,255,.045);--surface2:rgba(255,255,255,.075);--border:rgba(255,255,255,.10);
+    --text:#f0edf6;--dim:#a49db8;--muted:#605874;--gold:#f5c469;--rose:#ff8fb0;--cyan:#5fd6d0;--violet:#a78bff;
+    --font:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Segoe UI',sans-serif;--serif:'Georgia','Apple SD Gothic Neo',serif;--mono:'SF Mono','Fira Code',ui-monospace,monospace;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:radial-gradient(ellipse 90% 55% at 50% -8%,rgba(245,196,105,.12),transparent 55%),var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.75;max-width:940px;margin:0 auto;padding:44px 22px;}
+  .header{margin-bottom:40px;padding-bottom:26px;border-bottom:1px solid var(--border);}
+  .header .label{font-family:var(--mono);font-size:11px;letter-spacing:.24em;color:var(--gold);text-transform:uppercase;margin-bottom:14px;}
+  .header h1{font-family:var(--serif);font-size:40px;font-weight:600;letter-spacing:.02em;margin-bottom:8px;}
+  .header h1 .g{background:linear-gradient(90deg,var(--gold),var(--rose),var(--violet));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  .header .tagline{font-size:16px;color:var(--cyan);font-style:italic;}
+  .header p{font-size:14px;color:var(--dim);max-width:700px;margin-top:12px;}
+  .section{margin-bottom:46px;}
+  .section-label{font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--muted);text-transform:uppercase;margin-bottom:8px;}
+  .section-title{font-size:22px;font-weight:700;margin-bottom:14px;letter-spacing:-.01em;}
+  .section p{color:var(--dim);margin-bottom:12px;}
+  .section strong{color:var(--text);}
+
+  /* core loop */
+  .loop{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;}
+  .lstep{flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;}
+  .lstep .ic{font-size:22px;margin-bottom:6px;}
+  .lstep h4{font-size:13px;font-weight:600;margin-bottom:3px;}
+  .lstep p{font-size:11px;color:var(--dim);margin:0;}
+  .larr{display:flex;align-items:center;color:var(--muted);font-size:16px;}
+
+  /* pillars */
+  .pillar{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:0;margin-bottom:14px;overflow:hidden;}
+  .pillar-head{background:var(--surface2);padding:14px 22px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);}
+  .pillar-head .pn{font-family:var(--mono);font-size:11px;letter-spacing:.1em;}
+  .pillar-head h3{font-size:16px;font-weight:700;flex:1;}
+  .pillar.read .pn{color:var(--cyan);}.pillar.craft .pn{color:var(--gold);}.pillar.sing .pn{color:var(--rose);}
+  .pillar-body{padding:14px 22px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+  .feat{}
+  .feat .fn{font-family:var(--mono);font-size:10px;color:var(--muted);}
+  .feat h4{font-size:13px;font-weight:600;margin:3px 0 4px;}
+  .feat p{font-size:12px;color:var(--dim);margin:0;}
+  .feat .feas{font-family:var(--mono);font-size:9px;margin-top:6px;padding:1px 6px;border-radius:4px;display:inline-block;}
+  .browser{background:rgba(95,214,208,.12);color:var(--cyan);}
+  .ml{background:rgba(167,139,255,.12);color:var(--violet);}
+
+  .diff{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .dcol{border-radius:12px;padding:18px 20px;border:1px solid var(--border);}
+  .dcol.risk{background:rgba(255,143,176,.05);border-color:rgba(255,143,176,.25);}
+  .dcol.moat{background:rgba(95,214,208,.05);border-color:rgba(95,214,208,.3);}
+  .dcol h4{font-size:12px;font-family:var(--mono);letter-spacing:.05em;margin-bottom:10px;}
+  .dcol.risk h4{color:var(--rose);}.dcol.moat h4{color:var(--cyan);}
+  .dcol ul{list-style:none;}
+  .dcol li{font-size:12.5px;color:var(--dim);padding:4px 0 4px 16px;position:relative;}
+  .dcol.risk li::before{content:'✕';position:absolute;left:0;color:var(--rose);}
+  .dcol.moat li::before{content:'✓';position:absolute;left:0;color:var(--cyan);}
+
+  .link{background:var(--surface2);border:1px solid var(--violet);border-radius:12px;padding:18px 22px;}
+  .link h4{color:var(--violet);font-size:14px;margin-bottom:8px;}
+  .link p{font-size:13px;color:var(--dim);margin:0;}
+
+  .final{background:linear-gradient(135deg,rgba(245,196,105,.1),rgba(255,143,176,.08));border:1px solid var(--gold);border-radius:16px;padding:26px 30px;}
+  .final .one{font-family:var(--serif);font-size:22px;font-weight:600;line-height:1.4;}
+  .final .one span{color:var(--gold);}
+  hr.div{border:none;border-top:1px solid var(--border);margin:32px 0;}
+  @media(max-width:680px){.pillar-body,.diff{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="label">App Concept · Pivot · 2026.06</div>
+  <h1><span class="g">AURA</span></h1>
+  <div class="tagline">사진의 아우라를 읽고, 빛을 코치하고, 노래로 바꾼다.</div>
+  <p>당신의 사진을 분석해 <strong>미적 정체성</strong>을 배우고 — 찍기 전엔 프로처럼 코치하고, 찍은 뒤엔 프로답게 다듬으며, 마지막엔 그 사진을 <strong>노래로 승화</strong>시키는 AI 포토 스튜디오. (어두운 사진도 웅장한 해피엔딩으로 맺는다.)</p>
+</div>
+
+<!-- CORE LOOP -->
+<div class="section">
+  <div class="section-label">1 — 코어 루프</div>
+  <div class="section-title">읽고 · 코치하고 · 다듬고 · 노래한다</div>
+  <div class="loop">
+    <div class="lstep"><div class="ic">📷</div><h4>COACH</h4><p>찍기 전 구도·빛 가이드</p></div>
+    <div class="larr">→</div>
+    <div class="lstep"><div class="ic">🔍</div><h4>READ</h4><p>구도·아우라·색 분석</p></div>
+    <div class="larr">→</div>
+    <div class="lstep"><div class="ic">✨</div><h4>CRAFT</h4><p>프로급 색·톤·조명 재가공</p></div>
+    <div class="larr">→</div>
+    <div class="lstep"><div class="ic">🎵</div><h4>SING</h4><p>이미지→파형→음악</p></div>
+    <div class="larr">→</div>
+    <div class="lstep"><div class="ic">🖼️</div><h4>IDENTITY</h4><p>미적 정체성 누적</p></div>
+  </div>
+  <p style="margin-top:14px;font-size:13px;">사진을 찍을수록 앱은 <strong>당신의 취향(색·구도·아우라 패턴)</strong>을 배우고, 그만큼 코치와 재가공이 개인화된다 — 쓸수록 나를 닮아가는 성장 루프.</p>
+</div>
+
+<!-- PILLARS / 6 FEATURES -->
+<div class="section">
+  <div class="section-label">2 — 6개 기능 = 3개 기둥</div>
+  <div class="section-title">아키텍처</div>
+
+  <div class="pillar read">
+    <div class="pillar-head"><span class="pn">PILLAR A</span><h3>READ · 사진을 읽는다</h3></div>
+    <div class="pillar-body">
+      <div class="feat"><div class="fn">F1</div><h4>구도·구성 분석</h4><p>저장된 사진에서 구도·프레이밍·피사체 배치 패턴을 분석.</p><span class="feas browser">브라우저 가능</span></div>
+      <div class="feat"><div class="fn">F2</div><h4>아우라 분석</h4><p>밝기·채도·색온도로 긍정/부정 아우라를 점수화.</p><span class="feas browser">브라우저 가능</span></div>
+      <div class="feat"><div class="fn">F3</div><h4>색 스키마 저장</h4><p>색을 추출해 컬러 스킴 패턴으로 라이브러리에 축적.</p><span class="feas browser">브라우저 가능</span></div>
+    </div>
+  </div>
+
+  <div class="pillar craft">
+    <div class="pillar-head"><span class="pn">PILLAR B</span><h3>COACH & CRAFT · 프로처럼</h3></div>
+    <div class="pillar-body">
+      <div class="feat"><div class="fn">F4</div><h4>프로 가이드 + 재가공</h4><p>황금비·명작·전문 디자인 방법론을 학습해 이미지를 재가공하고, 찍기 전 가이드라인 생성.</p><span class="feas ml">일부 ML 백엔드</span></div>
+      <div class="feat"><div class="fn">F5</div><h4>색·톤·조명 보정</h4><p>이미지에 어울리는 색·톤·조명을 자동 조정.</p><span class="feas browser">브라우저(기본)</span></div>
+      <div class="feat"><div class="fn">—</div><h4>미적 정체성</h4><p>축적된 취향으로 코치·보정을 개인화.</p><span class="feas browser">데이터 축적</span></div>
+    </div>
+  </div>
+
+  <div class="pillar sing">
+    <div class="pillar-head"><span class="pn">PILLAR C</span><h3>SING · 노래로 승화</h3></div>
+    <div class="pillar-body">
+      <div class="feat"><div class="fn">F6</div><h4>이미지 → 파형 → 음악</h4><p>이미지를 파형으로 변형, 분석을 통해 심상적·서사적 음악 생성.</p><span class="feas browser">브라우저(Web Audio)</span></div>
+      <div class="feat"><div class="fn">F6+</div><h4>해피엔딩 서사 아크</h4><p>어둡거나 부정적인 사진은 웅장한 <b>해피엔딩</b>으로 귀결 — 단조 시작 → 장조 승화.</p><span class="feas browser">브라우저 가능</span></div>
+      <div class="feat"><div class="fn">SHARE</div><h4>포토-송 카드</h4><p>사진+그 사진의 노래 = 공유용 숏폼. 바이럴·퍼널.</p><span class="feas ml">렌더 파이프라인</span></div>
+    </div>
+  </div>
+</div>
+
+<hr class="div">
+
+<!-- CONNECTION -->
+<div class="section">
+  <div class="section-label">3 — Virtual ME와의 관계</div>
+  <div class="link">
+    <h4>AURA는 독립 앱이자, Virtual ME의 '시각 모듈'</h4>
+    <p>사진은 가장 정직한 무의식의 흔적이다 — AURA가 읽는 <strong>색·구도·아우라 패턴 = 미적 정체성</strong>은 Virtual ME의 파동 정체성의 한 갈래다. 그리고 <strong>F6 이미지→음악</strong>은 우리가 이미 구현한 소니피케이션 엔진을 그대로 쓴다. 즉 AURA는 <strong>단독 출시 가능</strong>하면서, Virtual ME 연못의 '사진→수련' 데이터 소스로도 합류할 수 있다.</p>
+  </div>
+</div>
+
+<!-- DIFFERENTIATION -->
+<div class="section">
+  <div class="section-label">4 — 차별성</div>
+  <div class="section-title">'또 하나의 필터 앱'이 되지 않으려면</div>
+  <div class="diff">
+    <div class="dcol risk"><h4>RISK — 흔한 함정</h4><ul>
+      <li>VSCO·Lightroom류 필터앱과 동질화</li>
+      <li>구도 분석이 뻔한 격자 오버레이에 그침</li>
+      <li>자동 보정이 "인스타 프리셋"으로 느껴짐</li>
+    </ul></div>
+    <div class="dcol moat"><h4>MOAT — 우리의 해자</h4><ul>
+      <li><b>아우라+음악</b>: 사진을 소리로 승화 — 아무도 안 함</li>
+      <li><b>해피엔딩 아크</b>: 어두운 순간도 웅장하게 맺는 정서적 훅</li>
+      <li><b>찍기 전 코치</b>: 사후 보정이 아니라 사전 가이드</li>
+      <li><b>미적 정체성</b>: 쓸수록 나를 배우는 개인화</li>
+    </ul></div>
+  </div>
+</div>
+
+<!-- FINAL -->
+<div class="section">
+  <div class="final">
+    <div class="one">"모든 사진에는 <span>아우라</span>가 있고, 모든 아우라에는 <span>노래</span>가 있다.<br>AURA는 그것을 읽고, 다듬고, 들려준다 — 어둠조차 웅장한 해피엔딩으로."</div>
+  </div>
+</div>
+</body>
+</html>

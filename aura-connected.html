@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AURA — 백엔드 연결 스튜디오</title>
+<style>
+  :root{--bg:#0b0910;--panel:rgba(255,255,255,.045);--border:rgba(255,255,255,.10);--text:#f0edf6;--dim:#a49db8;--muted:#605874;
+    --gold:#f5c469;--rose:#ff8fb0;--cyan:#5fd6d0;--violet:#a78bff;--good:#5fd6d0;--bad:#ff6b8a;
+    --font:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Segoe UI',sans-serif;--serif:'Georgia','Apple SD Gothic Neo',serif;--mono:'SF Mono','Fira Code',ui-monospace,monospace;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:radial-gradient(ellipse 90% 50% at 50% -5%,rgba(95,214,208,.08),transparent 55%),var(--bg);color:var(--text);font-family:var(--font);padding:20px 14px;}
+  .wrap{max-width:1000px;margin:0 auto;}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+  .top .kick{font-family:var(--mono);font-size:10px;letter-spacing:.3em;color:var(--muted);text-transform:uppercase;}
+  .top h1{font-family:var(--serif);font-size:24px;font-weight:600;margin-top:6px;}
+  .top h1 .g{background:linear-gradient(90deg,var(--cyan),var(--violet));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  .top p{font-size:13px;color:var(--dim);margin-top:4px;}
+  .conn{display:flex;gap:8px;align-items:center;margin:12px 0;flex-wrap:wrap;font-family:var(--mono);font-size:12px;}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);}
+  .dot.on{background:var(--good);box-shadow:0 0 8px var(--good);}
+  .dot.off{background:var(--bad);}
+  .conn input{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:6px;padding:5px 9px;color:var(--text);font-family:var(--mono);font-size:11px;width:200px;}
+  .bar{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0;}
+  .btn{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:9px 13px;color:var(--dim);font-size:12.5px;cursor:pointer;font-family:var(--mono);transition:.15s;}
+  .btn:hover{border-color:rgba(255,255,255,.3);color:var(--text);}
+  .btn.primary{background:linear-gradient(90deg,var(--cyan),var(--violet));border-color:transparent;color:#08121a;font-weight:700;}
+  .btn.play{color:var(--gold);border-color:rgba(245,196,105,.3);}
+  input[type=file]{display:none;}
+  .grid{display:grid;grid-template-columns:1fr 300px;gap:14px;}
+  @media(max-width:820px){.grid{grid-template-columns:1fr;}}
+  .stage{position:relative;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:#05040a;aspect-ratio:1/0.75;}
+  canvas{display:block;width:100%;height:100%;}
+  .empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);gap:8px;}
+  .empty .big{font-size:32px;}
+  .src{position:absolute;top:10px;left:14px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:rgba(255,255,255,.5);}
+  .side{display:flex;flex-direction:column;gap:12px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
+  .panel h3{font-size:10px;font-family:var(--mono);letter-spacing:.16em;color:var(--muted);text-transform:uppercase;margin-bottom:10px;display:flex;justify-content:space-between;}
+  .score{text-align:center;}
+  .score .v{font-family:var(--serif);font-size:34px;font-weight:600;color:var(--cyan);}
+  .score .v small{font-size:14px;color:var(--muted);}
+  .score .master{font-family:var(--mono);font-size:11px;color:var(--violet);margin-top:2px;}
+  .bars{display:flex;flex-direction:column;gap:6px;margin-top:10px;}
+  .mrow{display:grid;grid-template-columns:64px 1fr 34px;gap:8px;align-items:center;font-family:var(--mono);font-size:11px;}
+  .mrow .k{color:var(--dim);}.mrow .tr{height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;}
+  .mrow .fl{height:100%;background:linear-gradient(90deg,var(--violet),var(--cyan));border-radius:3px;}
+  .mrow .vv{color:var(--muted);text-align:right;}
+  .guide .tip{font-size:12.5px;color:var(--dim);padding:5px 0 5px 16px;position:relative;line-height:1.5;}
+  .guide .tip::before{content:'▸';position:absolute;left:0;color:var(--gold);}
+  .viol{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;}
+  .viol span{font-family:var(--mono);font-size:10px;background:rgba(255,107,138,.15);color:var(--bad);border-radius:5px;padding:3px 8px;}
+  .foot{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:14px;}
+  .ovtoggle{display:flex;gap:6px;}
+  .ovtoggle button{flex:1;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--dim);font-size:11px;cursor:pointer;font-family:var(--mono);}
+  .ovtoggle button.on{background:rgba(95,214,208,.15);border-color:var(--cyan);color:var(--cyan);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2 class="sr-only">백엔드 M1 구도·M2 미적 분석에 실제로 연결해 구도 오버레이와 점수를 표시하는 스튜디오</h2>
+  <div class="top">
+    <div class="kick">AURA · Connected Studio · front ↔ backend (M1·M2)</div>
+    <h1><span class="g">①</span> 백엔드 연결 분석</h1>
+    <p>사진을 백엔드로 보내 실제 구도(삼각·흐름·황금·초점)와 미적 점수를 받습니다. 백엔드가 꺼져 있으면 로컬 폴백.</p>
+  </div>
+  <div class="conn">
+    <span class="dot" id="dot"></span><span id="connlbl">연결 확인 중…</span>
+    <span style="color:var(--muted)">API</span><input id="apiurl" value="">
+    <button class="btn" id="ping" style="padding:5px 10px">재연결</button>
+  </div>
+  <div class="bar">
+    <label class="btn primary" for="file">📁 사진 올리기</label>
+    <input type="file" id="file" accept="image/*">
+    <button class="btn" data-s="sunset">🌅 일몰</button>
+    <button class="btn" data-s="night">🌃 밤거리</button>
+    <button class="btn" data-s="forest">🌲 숲</button>
+    <button class="btn play" id="play">▶ 노래</button>
+  </div>
+  <div class="grid">
+    <div class="stage">
+      <canvas id="cv"></canvas>
+      <div class="src" id="srclbl"></div>
+      <div class="empty" id="empty"><div class="big">🖼️</div><div>사진을 올리거나 샘플을 선택</div></div>
+    </div>
+    <div class="side">
+      <div class="panel"><h3>구도 오버레이</h3>
+        <div class="ovtoggle"><button data-o="grammar" class="on">구도 문법</button><button data-o="golden">황금비</button><button data-o="none">없음</button></div>
+      </div>
+      <div class="panel score"><h3>미적 점수 <span id="engine" style="color:var(--muted)"></span></h3>
+        <div class="v" id="aScore">—<small>/10</small></div><div class="master" id="master"></div>
+        <div class="bars" id="metrics"></div>
+      </div>
+      <div class="panel"><h3>구도 <span id="compsum" style="color:var(--muted)"></span></h3>
+        <div class="viol" id="viol"></div>
+      </div>
+      <div class="panel"><h3>가이드라인</h3><div class="guide" id="guide">—</div></div>
+    </div>
+  </div>
+  <p class="foot">백엔드 응답의 composition/aesthetic를 오버레이·점수·가이드에 그대로 매핑. 오프라인이면 로컬 아우라만 표시.</p>
+</div>
+
+<script src="aura-api.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const cv=$('cv'),ctx=cv.getContext('2d');
+let W=0,H=0,DPR=Math.min(2,window.devicePixelRatio||1);
+function resize(){const r=cv.getBoundingClientRect();W=r.width;H=r.height;cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);if(img)draw();}
+window.addEventListener('resize',resize);
+$('apiurl').value=AuraAPI.base;
+let online=false,overlay='grammar',img=null,curBlob=null,result=null;
+
+async function checkConn(){online=await AuraAPI.ping();$('dot').className='dot '+(online?'on':'off');$('connlbl').textContent=online?'백엔드 연결됨':'백엔드 오프라인 (로컬 폴백)';}
+$('ping').onclick=()=>{AuraAPI.setBase($('apiurl').value.trim());checkConn();};
+checkConn();
+
+function genSample(kind){const c=document.createElement('canvas');c.width=480;c.height=340;const g=c.getContext('2d');
+  if(kind==='sunset'){const gr=g.createLinearGradient(0,0,0,340);gr.addColorStop(0,'#2a1a4a');gr.addColorStop(.5,'#e85c3a');gr.addColorStop(.75,'#ffb347');gr.addColorStop(1,'#3a2416');g.fillStyle=gr;g.fillRect(0,0,480,340);g.fillStyle='rgba(255,240,180,.9)';g.beginPath();g.arc(330,190,32,0,7);g.fill();g.fillStyle='#1a0f14';g.fillRect(0,290,480,50);}
+  else if(kind==='night'){g.fillStyle='#070a16';g.fillRect(0,0,480,340);for(let i=0;i<90;i++){g.fillStyle=`rgba(${120+Math.random()*130},${140+Math.random()*100},${200+Math.random()*55},${.4+Math.random()*.6})`;g.fillRect(Math.random()*480,160+Math.random()*180,2+Math.random()*3,2+Math.random()*3);}g.fillStyle='rgba(90,130,255,.2)';g.fillRect(0,130,480,40);g.fillStyle='#0a0e1e';g.fillRect(0,0,480,130);}
+  else{const gr=g.createLinearGradient(0,0,0,340);gr.addColorStop(0,'#123a24');gr.addColorStop(1,'#0a1f14');g.fillStyle=gr;g.fillRect(0,0,480,340);for(let i=0;i<44;i++){g.strokeStyle=`rgba(${40+Math.random()*60},${90+Math.random()*80},${50+Math.random()*40},.6)`;g.lineWidth=3+Math.random()*8;g.beginPath();const x=Math.random()*480;g.moveTo(x,340);g.lineTo(x+(Math.random()-.5)*40,Math.random()*150);g.stroke();}}
+  return c;}
+
+function loadCanvas(c,label){c.toBlob(b=>{curBlob=b;const im=new Image();im.onload=()=>{img=im;$('empty').style.display='none';$('srclbl').textContent=label;runAnalyze();};im.src=URL.createObjectURL(b);},'image/png');}
+document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>loadCanvas(genSample(b.dataset.s),'SAMPLE · '+b.textContent.trim()));
+$('file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;curBlob=f;const im=new Image();im.onload=()=>{img=im;$('empty').style.display='none';$('srclbl').textContent='UPLOAD';runAnalyze();};im.src=URL.createObjectURL(f);});
+
+// local fallback (aura+palette only)
+function localAnalyze(){const sw=80,sh=Math.round(80*(img.height/img.width))||80;const oc=document.createElement('canvas');oc.width=sw;oc.height=sh;const o=oc.getContext('2d');o.drawImage(img,0,0,sw,sh);const d=o.getImageData(0,0,sw,sh).data;let sB=0,sW=0,sS=0,n=0;const bins={};for(let i=0;i<d.length;i+=4){const r=d[i],g=d[i+1],b=d[i+2];const mx=Math.max(r,g,b)/255,mn=Math.min(r,g,b)/255;sB+=(mx+mn)/2;sS+=mx===mn?0:(mx-mn);sW+=(r-b)/255;n++;const k=(r>>5)+'_'+(g>>5)+'_'+(b>>5);if(!bins[k])bins[k]={r:0,g:0,b:0,c:0};bins[k].r+=r;bins[k].g+=g;bins[k].b+=b;bins[k].c++;}const pal=Object.values(bins).sort((a,b)=>b.c-a.c).slice(0,5).map(o=>'#'+[o.r/o.c,o.g/o.c,o.b/o.c].map(x=>Math.round(x).toString(16).padStart(2,'0')).join(''));const bright=sB/n,warm=sW/n,sat=sS/n;const aura=Math.max(-1,Math.min(1,(bright-0.45)*1.6+warm*0.9+(sat-0.3)*0.6));return {composition:null,aesthetic:null,aura:{score:+aura.toFixed(2),bright,warm,sat},palette:pal,guidelines:['백엔드를 켜면 구도(삼각·흐름·황금) 점수와 프로 가이드가 표시됩니다.'],music_seed:{root:52,arc:aura<-.1?'happy_ending':'bright'}};}
+
+async function runAnalyze(){
+  $('engine').textContent='분석 중…';
+  try{
+    if(!online) throw new Error('offline');
+    result=await AuraAPI.analyze(curBlob);
+    $('engine').textContent='· backend M1·M2';
+  }catch(e){
+    result=localAnalyze();$('engine').textContent='· 로컬 폴백';
+  }
+  render();draw();
+}
+function render(){const r=result;
+  if(r.aesthetic){$('aScore').innerHTML=r.aesthetic.score+'<small>/10</small>';$('master').textContent='닮은 구도 · '+r.aesthetic.nearest_master;
+    const m=r.aesthetic.metrics;const names={golden:'황금',triangle:'삼각',colorfulness:'색채',sharpness:'선명',exposure:'노출'};
+    $('metrics').innerHTML=Object.keys(m).map(k=>`<div class="mrow"><span class="k">${names[k]||k}</span><span class="tr"><span class="fl" style="width:${Math.round(m[k]*100)}%"></span></span><span class="vv">${m[k].toFixed(2)}</span></div>`).join('');
+    $('viol').innerHTML=(r.aesthetic.violations||[]).map(v=>`<span>${v}</span>`).join('')||'<span style="background:rgba(95,214,208,.12);color:var(--cyan)">문제 없음</span>';
+    const c=r.composition;$('compsum').textContent=c?`삼각 ${c.triangle_fit} · 황금 ${c.golden_score}`:'';
+  }else{$('aScore').innerHTML='—<small>/10</small>';$('master').textContent='';$('metrics').innerHTML='<div class="mrow"><span class="k" style="color:var(--muted)">백엔드 연결 시 표시</span></div>';$('viol').innerHTML='';$('compsum').textContent='';}
+  $('guide').innerHTML=(r.guidelines||[]).map(t=>`<div class="tip">${t}</div>`).join('');
+}
+function fit(){const ar=img.width/img.height,cr=W/H;let dw,dh,dx,dy;if(ar>cr){dw=W;dh=W/ar;dx=0;dy=(H-dh)/2;}else{dh=H;dw=H*ar;dy=0;dx=(W-dw)/2;}return{dw,dh,dx,dy};}
+function draw(){if(!img)return;ctx.clearRect(0,0,W,H);const{dw,dh,dx,dy}=fit();ctx.drawImage(img,dx,dy,dw,dh);
+  const c=result&&result.composition;
+  if(overlay!=='none'&&(overlay==='golden'||c)){ctx.save();
+    if(overlay==='golden'||overlay==='grammar'){ctx.strokeStyle='rgba(255,255,255,.32)';ctx.lineWidth=1;[0.382,0.618].forEach(f=>{ctx.beginPath();ctx.moveTo(dx+dw*f,dy);ctx.lineTo(dx+dw*f,dy+dh);ctx.stroke();ctx.beginPath();ctx.moveTo(dx,dy+dh*f);ctx.lineTo(dx+dw,dy+dh*f);ctx.stroke();});}
+    if(overlay==='grammar'&&c){
+      const P=xy=>({x:dx+dw*xy[0],y:dy+dh*xy[1]});
+      // triangle between focal points
+      if(c.focal&&c.focal.length>=3){ctx.strokeStyle='rgba(95,214,208,.7)';ctx.lineWidth=1.5;ctx.beginPath();c.focal.slice(0,3).forEach((f,i)=>{const p=P(f.xy);i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y);});ctx.closePath();ctx.stroke();}
+      // flow arrow
+      (c.flow||[]).forEach(fl=>{const a=P(fl.from),b=P(fl.to);ctx.strokeStyle='rgba(245,196,105,.85)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();const ang=Math.atan2(b.y-a.y,b.x-a.x);ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(b.x-12*Math.cos(ang-0.4),b.y-12*Math.sin(ang-0.4));ctx.moveTo(b.x,b.y);ctx.lineTo(b.x-12*Math.cos(ang+0.4),b.y-12*Math.sin(ang+0.4));ctx.stroke();});
+      // focal points
+      (c.focal||[]).forEach((f,i)=>{const p=P(f.xy);const rr=6+f.weight*40;ctx.fillStyle='rgba(255,143,176,.25)';ctx.beginPath();ctx.arc(p.x,p.y,rr,0,7);ctx.fill();ctx.fillStyle='rgba(255,143,176,.95)';ctx.beginPath();ctx.arc(p.x,p.y,4,0,7);ctx.fill();});
+      // centroid
+      if(c.focal_centroid){const p=P(c.focal_centroid);ctx.strokeStyle='rgba(167,139,255,.9)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(p.x,p.y,10,0,7);ctx.stroke();ctx.beginPath();ctx.moveTo(p.x-14,p.y);ctx.lineTo(p.x+14,p.y);ctx.moveTo(p.x,p.y-14);ctx.lineTo(p.x,p.y+14);ctx.stroke();}
+    }
+    ctx.restore();
+  }
+}
+document.querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-o]').forEach(x=>x.classList.remove('on'));b.classList.add('on');overlay=b.dataset.o;draw();});
+
+// song from music_seed
+let actx=null,master=null,playing=false;
+function m2f(m){return 440*Math.pow(2,(m-69)/12);}
+function ensure(){if(!actx){actx=new(window.AudioContext||window.webkitAudioContext)();master=actx.createGain();master.gain.value=0.22;const f=actx.createBiquadFilter();f.type='lowpass';f.frequency.value=2200;master.connect(f);f.connect(actx.destination);}else actx.resume();}
+function tone(fr,t,dur,vol,type){const o=actx.createOscillator(),g=actx.createGain();o.type=type||'sine';o.frequency.value=fr;o.connect(g);g.connect(master);g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(vol,t+0.03);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.start(t);o.stop(t+dur+0.05);}
+$('play').onclick=()=>{if(!result||playing)return;ensure();const s=result.music_seed||{root:52,arc:'bright'};const t=actx.currentTime;const root=s.root||52;const dark=s.arc==='happy_ending';const minor=[0,2,3,7,10,12],major=[0,2,4,7,9,12,16];let time=t,tempo=0.42;const p1=dark?minor:major;
+  for(let i=0;i<6;i++){tone(m2f(root+p1[i%p1.length]),time,tempo*2.4,0.12,dark?'triangle':'sine');time+=tempo;}
+  tone(m2f(root-12),t,tempo*8,0.1,'sine');
+  for(let i=0;i<6;i++){tone(m2f(root+(dark?minor:major)[i%6]+7),time,tempo*1.8,0.11,'sine');time+=tempo*0.8;}
+  const gr=root+12,rt=time+0.1;[0,4,7,12,16].forEach(x=>{tone(m2f(gr+x),rt,2.8,0.13,'sine');});[0,4,7,12,16,19].forEach((x,i)=>tone(m2f(gr+x),rt+i*0.12,1.6,0.12,'sine'));tone(m2f(gr-24),rt,3,0.12,'sine');
+  playing=true;$('play').textContent='♪…';const total=(time-t)+3.2;setTimeout(()=>{playing=false;$('play').textContent='▶ 노래';},total*1000);};
+resize();
+</script>
+</body>
+</html>
