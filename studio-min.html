@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AURA</title>
+<style>
+  :root{
+    --bg:#f6f4f1; --surface:#ffffff; --ink:#1b1a18; --muted:#8b8880; --line:#eceae5;
+    --accent:#e8654f; --shadow:0 2px 14px rgba(30,25,20,.06);
+    --font:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Segoe UI',sans-serif;
+    --serif:'Georgia','Apple SD Gothic Neo',serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+  button{font-family:inherit;cursor:pointer;}
+  input[type=file]{display:none;}
+
+  /* top bar — 극도로 단순 */
+  header{position:sticky;top:0;z-index:20;background:rgba(246,244,241,.85);backdrop-filter:saturate(180%) blur(12px);border-bottom:1px solid var(--line);}
+  .hbar{max-width:1120px;margin:0 auto;display:flex;align-items:center;padding:16px 24px;gap:16px;}
+  .brand{font-family:var(--serif);font-size:22px;letter-spacing:.06em;font-weight:600;}
+  .brand small{font-family:var(--font);font-size:10px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;margin-left:8px;font-weight:400;white-space:nowrap;}
+  .brand{display:flex;align-items:baseline;white-space:nowrap;}
+  .spacer{flex:1;}
+  .add{display:flex;gap:8px;align-items:center;}
+  .plus{background:var(--ink);color:#fff;border:0;border-radius:100px;padding:9px 18px;font-size:13px;font-weight:600;white-space:nowrap;}
+  @media(max-width:560px){.brand small{display:none;}}
+  .plus:hover{background:#000;}
+  .samp{background:none;border:0;font-size:16px;opacity:.55;padding:4px;}
+  .samp:hover{opacity:1;}
+
+  /* home — pinterest masonry */
+  main{max-width:1120px;margin:0 auto;padding:28px 24px 80px;}
+  .lead{margin:6px 0 26px;}
+  .lead h1{font-family:var(--serif);font-size:30px;font-weight:500;line-height:1.2;}
+  .lead p{color:var(--muted);font-size:14px;margin-top:6px;}
+  .grid{column-count:4;column-gap:16px;}
+  @media(max-width:980px){.grid{column-count:3;}}
+  @media(max-width:640px){.grid{column-count:2;}.hbar{padding:14px 16px;}main{padding:20px 16px 60px;}}
+  .card{break-inside:avoid;margin-bottom:16px;border-radius:16px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow);cursor:pointer;position:relative;transition:transform .18s ease;}
+  .card:hover{transform:translateY(-3px);}
+  .card img{display:block;width:100%;height:auto;}
+  .card .abar{height:5px;display:flex;}.card .abar div{flex:1;}
+  .card .del{position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.9);border:0;font-size:13px;color:var(--ink);opacity:0;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);}
+  .card:hover .del{opacity:1;}
+  .empty{text-align:center;color:var(--muted);padding:80px 20px;}
+  .empty .big{font-size:44px;opacity:.5;margin-bottom:12px;}
+  .empty .plus{margin-top:18px;display:inline-block;}
+
+  /* detail — 한 화면 한 초점 */
+  .detail{display:none;position:fixed;inset:0;z-index:30;background:var(--bg);overflow:auto;}
+  .detail.on{display:block;}
+  .dwrap{max-width:860px;margin:0 auto;padding:18px 24px 60px;}
+  .dtop{display:flex;align-items:center;gap:14px;padding:6px 0 18px;}
+  .back{background:none;border:0;font-size:15px;color:var(--ink);display:flex;align-items:center;gap:6px;}
+  .back:hover{color:var(--accent);}
+  .hero{border-radius:18px;overflow:hidden;background:#111;box-shadow:var(--shadow);}
+  .hero canvas{display:block;width:100%;height:auto;max-height:62vh;object-fit:contain;background:#111;}
+  /* segmented — 미니멀 필 */
+  .seg{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:100px;padding:4px;margin:18px auto;width:max-content;box-shadow:var(--shadow);}
+  .seg button{border:0;background:none;border-radius:100px;padding:8px 18px;font-size:13px;color:var(--muted);font-weight:600;}
+  .seg button.on{background:var(--ink);color:#fff;}
+  .content{min-height:60px;}
+  .line{text-align:center;color:var(--ink);font-size:15px;line-height:1.6;}
+  .line .mut{color:var(--muted);}
+  .line b{font-weight:600;}
+  .dots{display:flex;gap:8px;justify-content:center;margin:16px 0;}
+  .dots div{width:26px;height:26px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06);}
+  .aura-pill{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:100px;padding:8px 16px;font-size:13px;box-shadow:var(--shadow);}
+  .aura-pill .d{width:10px;height:10px;border-radius:50%;}
+  .row{display:flex;justify-content:center;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px;}
+  .ghost{background:var(--surface);border:1px solid var(--line);border-radius:100px;padding:9px 18px;font-size:13px;color:var(--ink);box-shadow:var(--shadow);}
+  .ghost.on{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .play{width:60px;height:60px;border-radius:50%;background:var(--accent);border:0;color:#fff;font-size:20px;box-shadow:0 6px 20px rgba(232,101,79,.35);display:flex;align-items:center;justify-content:center;margin:0 auto;}
+  .play:hover{filter:brightness(1.05);}
+  .hint{text-align:center;color:var(--muted);font-size:12px;margin-top:12px;}
+  .strength{max-width:320px;margin:14px auto 0;display:flex;align-items:center;gap:10px;}
+  .strength input{flex:1;-webkit-appearance:none;height:3px;border-radius:2px;background:var(--line);outline:none;}
+  .strength input::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);}
+  .strength span{font-size:12px;color:var(--muted);width:38px;}
+</style>
+</head>
+<body>
+<h2 class="sr-only">미니멀 Pinterest 스타일 AURA 사진 스튜디오</h2>
+<header>
+  <div class="hbar">
+    <div class="brand">AURA<small>사진을 노래로</small></div>
+    <div class="spacer"></div>
+    <div class="add">
+      <button class="samp" data-s="sunset" title="샘플 일몰">🌅</button>
+      <button class="samp" data-s="night" title="샘플 밤">🌃</button>
+      <button class="samp" data-s="forest" title="샘플 숲">🌲</button>
+      <label class="plus" for="file">＋ 사진</label>
+      <input type="file" id="file" accept="image/*" multiple>
+    </div>
+  </div>
+</header>
+
+<main id="home">
+  <div class="lead">
+    <h1>당신의 사진들</h1>
+    <p id="sub">사진을 더하면 여기에 모입니다 · 클릭하면 분석·재가공·노래·정체성</p>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty"><div class="big">🖼️</div><div>아직 비어있어요</div><label class="plus" for="file">＋ 첫 사진 올리기</label></div>
+</main>
+
+<!-- DETAIL -->
+<div class="detail" id="detail">
+  <div class="dwrap">
+    <div class="dtop"><button class="back" id="back">← 갤러리</button></div>
+    <div class="hero"><canvas id="hero"></canvas></div>
+    <div class="seg">
+      <button data-m="analyze" class="on">분석</button>
+      <button data-m="enhance">재가공</button>
+      <button data-m="song">노래</button>
+      <button data-m="identity">정체성</button>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<script src="aura-core.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+let library=[], current=null, curImg=null, mode='analyze';
+let overlay='golden', graded=null, divider=.5, strength=1;
+
+async function refresh(){
+  try{ library=await AuraCore.db.all(); }catch(e){ library=library||[]; }
+  renderGrid();
+}
+function auraColor(a){return a>.3?'#e8a13f':a<-.3?'#6b74c9':'#4fb3a6';}
+function renderGrid(){
+  $('empty').style.display=library.length?'none':'block';
+  $('sub').textContent=library.length?`${library.length}장 · 클릭하면 분석·재가공·노래·정체성`:'사진을 더하면 여기에 모입니다 · 클릭하면 분석·재가공·노래·정체성';
+  $('grid').innerHTML='';
+  library.slice().reverse().forEach(it=>{
+    const c=document.createElement('div');c.className='card';
+    const bar=it.analysis.paletteHex.map(h=>`<div style="background:${h}"></div>`).join('');
+    c.innerHTML=`<button class="del" title="삭제">✕</button><img src="${it.thumb}" loading="lazy"><div class="abar">${bar}</div>`;
+    c.querySelector('img').onclick=()=>open(it);
+    c.querySelector('.del').onclick=async e=>{e.stopPropagation();await AuraCore.db.del(it.id);refresh();};
+    $('grid').appendChild(c);
+  });
+}
+async function addSource(src){
+  const analysis=AuraCore.analyze(src); if(!analysis)return;
+  const thumb=AuraCore.toThumb(src,360);
+  let id; try{ id=await AuraCore.db.add({thumb,analysis,createdAt:Date.now()}); }catch(e){ id='m'+Math.random(); }
+  library.push({id,thumb,analysis}); renderGrid();
+}
+document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>addSource(AuraCore.genSample(b.dataset.s)));
+$('file').addEventListener('change',e=>{[...e.target.files].forEach(f=>{const im=new Image();im.onload=()=>addSource(im);im.src=URL.createObjectURL(f);});});
+
+/* detail */
+function open(it){current=it;curImg=new Image();curImg.onload=()=>{setMode('analyze');};curImg.src=it.thumb;$('detail').classList.add('on');document.body.style.overflow='hidden';}
+$('back').onclick=()=>{$('detail').classList.remove('on');document.body.style.overflow='';};
+document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
+function setMode(m){mode=m;document.querySelectorAll('.seg button').forEach(x=>x.classList.toggle('on',x.dataset.m===m));graded=null;render();}
+
+function setupHero(){const cv=$('hero');const rect=cv.getBoundingClientRect();const w=cv.parentElement.clientWidth;let h;
+  if(mode==='identity'){h=Math.round(w*0.6);}else{h=Math.round(w*(curImg.height/curImg.width));h=Math.min(h,Math.round(window.innerHeight*0.62));}
+  const DPR=Math.min(2,devicePixelRatio||1);cv.style.height=h+'px';cv.width=w*DPR;cv.height=h*DPR;const c=cv.getContext('2d');c.setTransform(DPR,0,0,DPR,0,0);return {c,w,h};}
+function fitImg(img,w,h){const ar=img.width/img.height,cr=w/h;let dw,dh,dx,dy;if(ar>cr){dw=w;dh=w/ar;dx=0;dy=(h-dh)/2;}else{dh=h;dw=h*ar;dy=0;dx=(w-dw)/2;}return{dw,dh,dx,dy};}
+
+function render(){
+  const a=current.analysis;const {c,w,h}=setupHero();c.clearRect(0,0,w,h);c.fillStyle='#111';c.fillRect(0,0,w,h);
+  if(mode==='analyze'){
+    const {dw,dh,dx,dy}=fitImg(curImg,w,h);c.drawImage(curImg,dx,dy,dw,dh);
+    if(overlay==='golden'){c.strokeStyle='rgba(255,255,255,.4)';c.lineWidth=1;[0.382,0.618].forEach(f=>{c.beginPath();c.moveTo(dx+dw*f,dy);c.lineTo(dx+dw*f,dy+dh);c.stroke();c.beginPath();c.moveTo(dx,dy+dh*f);c.lineTo(dx+dw,dy+dh*f);c.stroke();});c.fillStyle='rgba(232,101,79,.95)';c.beginPath();c.arc(dx+dw*a.centroid.x,dy+dh*a.centroid.y,5,0,7);c.fill();}
+    const tone=a.warm>.08?'따뜻한':a.warm<-.08?'차가운':'중성적인';const br=a.bright>.5?'밝은':'그윽한';
+    $('content').innerHTML=`
+      <div class="line"><b>${tone} ${br}</b> 톤 <span class="mut">· 주조색 ${a.hueName}</span></div>
+      <div class="dots">${a.paletteHex.map(hx=>`<div style="background:${hx}"></div>`).join('')}</div>
+      <div class="line"><span class="aura-pill"><span class="d" style="background:${auraColor(a.aura)}"></span>아우라 ${(a.aura>=0?'+':'')+a.aura.toFixed(2)}</span></div>
+      <div class="line mut" style="margin-top:16px;font-size:13px">${AuraCore.guidelines(a)[0]}</div>
+      <div class="row"><button class="ghost ${overlay==='golden'?'on':''}" id="ovg">황금비 안내</button></div>`;
+    $('ovg').onclick=()=>{overlay=overlay==='golden'?'none':'golden';render();};
+  }
+  else if(mode==='enhance'){
+    if(!graded)graded=AuraCore.grade(curImg);drawEnhance(c,w,h);
+    const e=graded.edits.slice(0,3).map(x=>`${x[0]} ${x[1]}`).join(' · ');
+    $('content').innerHTML=`
+      <div class="strength"><span>원본</span><input type="range" id="st" min="0" max="100" value="${Math.round(strength*100)}"><span>보정</span></div>
+      <div class="line mut" style="margin-top:14px;font-size:13px">${e}</div>
+      <div class="hint">사진 위를 드래그해 before / after 비교</div>`;
+    $('st').oninput=ev=>{strength=ev.target.value/100;const {c,w,h}=setupHero();drawEnhance(c,w,h);};
+  }
+  else if(mode==='song'){
+    drawWave(c,w,h,false);
+    $('content').innerHTML=`<button class="play" id="pl">▶</button><div class="line mut" style="margin-top:14px;font-size:13px">${AuraCore.musicArc(a)}</div>`;
+    $('pl').onclick=()=>{if(AuraCore.audio.playing)return;$('pl').textContent='♪';const dur=AuraCore.audio.play(a,()=>{$('pl').textContent='▶';});animWave(dur);};
+  }
+  else if(mode==='identity'){
+    drawScatter(c,w,h);const A=library.map(it=>it.analysis);const id=AuraCore.identity(A);
+    $('content').innerHTML=id?`
+      <div class="line"><span class="aura-pill"><span class="d" style="background:${auraColor(id.avgAura)}"></span>취향 중심 ${(id.avgAura>=0?'+':'')+id.avgAura.toFixed(2)} · 일관성 ${Math.round(id.coherence*100)}%</span></div>
+      <div class="dots" style="margin-top:14px">${id.signature.map(hx=>`<div style="background:${hx}"></div>`).join('')}</div>
+      <div class="line mut" style="font-size:13px">${id.summary}</div>`:'<div class="line mut">사진을 더 모아보세요</div>';
+  }
+}
+function drawEnhance(c,w,h){const {dw,dh,dx,dy}=fitImg(graded.before,w,h);c.drawImage(graded.before,dx,dy,dw,dh);c.save();c.globalAlpha=strength;c.drawImage(graded.after,dx,dy,dw,dh);c.restore();const divX=dx+dw*divider;c.save();c.beginPath();c.rect(dx,dy,dw*divider,dh);c.clip();c.drawImage(graded.before,dx,dy,dw,dh);c.restore();c.strokeStyle='rgba(255,255,255,.9)';c.lineWidth=2;c.beginPath();c.moveTo(divX,dy);c.lineTo(divX,dy+dh);c.stroke();c.fillStyle='#fff';c.beginPath();c.arc(divX,dy+dh/2,11,0,7);c.fill();c.fillStyle='#111';c.font='11px sans-serif';c.textAlign='center';c.fillText('⇄',divX,dy+dh/2+4);}
+let heroDrag=false;
+$('hero').addEventListener('pointerdown',e=>{if(mode!=='enhance'||!graded)return;heroDrag=true;$('hero').setPointerCapture(e.pointerId);moveDiv(e);});
+$('hero').addEventListener('pointermove',e=>{if(heroDrag)moveDiv(e);});
+$('hero').addEventListener('pointerup',()=>heroDrag=false);
+function moveDiv(e){const cv=$('hero'),r=cv.getBoundingClientRect();const w=cv.clientWidth,h=cv.clientHeight;const {dw,dx}=fitImg(graded.before,w,h);divider=Math.max(0,Math.min(1,(e.clientX-r.left-dx)/dw));const c=cv.getContext('2d');drawEnhance(c,w,h);}
+
+function drawWave(c,w,h,playing,p,en){const a=current.analysis,wave=a.wave,pr=a.palette[0];c.fillStyle='#111';c.fillRect(0,0,w,h);const time=performance.now()/1000;p=p||0;en=en||.5;c.globalCompositeOperation='lighter';c.strokeStyle=AuraCore.hex(pr.r+60,pr.g+60,pr.b+80);c.lineWidth=2.5;c.beginPath();for(let i=0;i<wave.length;i++){const x=i/(wave.length-1)*w;const mod=Math.sin(time*4+i*.5)*.5+.5;const amp=(wave[i]-.5)*h*.6*(.5+en*1.4)*(.6+.8*mod);const y=h/2-amp;i?c.lineTo(x,y):c.moveTo(x,y);}c.stroke();if(playing){c.strokeStyle='rgba(255,255,255,.55)';c.lineWidth=1.5;c.beginPath();c.moveTo(p*w,0);c.lineTo(p*w,h);c.stroke();}c.globalCompositeOperation='source-over';}
+let waveRAF=null,waveStart=0,waveDur=0;
+function animWave(dur){waveStart=performance.now();waveDur=dur;cancelAnimationFrame(waveRAF);const step=()=>{if(mode!=='song'){return;}const t=(performance.now()-waveStart)/(dur*1000);const en=t<.35?.4+.3*t/.35:t<.7?.55+.35*(t-.35)/.35:t<.85?.95:Math.max(.2,.95-(t-.85)/.15*.6);const {c,w,h}=setupHero();drawWave(c,w,h,t<1,Math.min(1,t),en);if(t<1)waveRAF=requestAnimationFrame(step);else{const {c,w,h}=setupHero();drawWave(c,w,h,false);}};waveRAF=requestAnimationFrame(step);}
+
+function drawScatter(c,w,h){c.fillStyle='#15130f';c.fillRect(0,0,w,h);c.strokeStyle='rgba(255,255,255,.08)';c.lineWidth=1;c.beginPath();c.moveTo(w/2,0);c.lineTo(w/2,h);c.moveTo(0,h/2);c.lineTo(w,h/2);c.stroke();c.fillStyle='rgba(255,255,255,.3)';c.font='9px sans-serif';c.textAlign='center';c.fillText('차가움 ← 색온도 → 따뜻함',w/2,h-6);const A=library.map(it=>it.analysis);if(!A.length)return;const toXY=(wm,b)=>({x:w*(.5+wm*1.4),y:h*(1-b)});A.forEach(a=>{const {x,y}=toXY(a.warm,a.bright);const col=a.palette[0];c.fillStyle=AuraCore.hex(col.r,col.g,col.b);c.beginPath();c.arc(x,y,5+a.sat*10,0,7);c.fill();c.strokeStyle='rgba(255,255,255,.35)';c.stroke();});const aw=A.reduce((s,a)=>s+a.warm,0)/A.length,ab=A.reduce((s,a)=>s+a.bright,0)/A.length;const ct=toXY(aw,ab);c.strokeStyle='rgba(255,255,255,.85)';c.lineWidth=1.5;c.beginPath();c.arc(ct.x,ct.y,7,0,7);c.stroke();}
+
+window.addEventListener('resize',()=>{if($('detail').classList.contains('on')&&current)render();});
+refresh();
+</script>
+</body>
+</html>
