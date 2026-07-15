@@ -264,6 +264,81 @@
     c.fillStyle = vg; c.fillRect(0, 0, w, h);
   };
 
+  /* ---------- 2.5D 패럴랙스 ----------
+     행 스트립 변위: 아래(가까움)일수록 크게, 위(멀수록) 작게 흔들려 입체감.
+     px/py(-1..1)는 시차 방향 — 마우스나 자동 스웨이. */
+  AuraCore.parallaxFrame = function (c, w, h, img, a, t, px, py, energy) {
+    energy = energy === undefined ? 0.45 : energy;
+    px = px === undefined ? Math.sin(t * 0.4) * 0.6 : px;
+    py = py === undefined ? Math.cos(t * 0.31) * 0.35 : py;
+    const zoom = 1.12; // 가장자리 여유
+    const ar = img.width / img.height, cr = w / h;
+    let dw, dh; if (ar > cr) { dh = h * zoom; dw = dh * ar; } else { dw = w * zoom; dh = dw / ar; }
+    const bx = (w - dw) / 2, by = (h - dh) / 2;
+    c.fillStyle = '#000'; c.fillRect(0, 0, w, h);
+    const STRIPS = 42, maxShift = w * 0.028 * (0.7 + energy * 0.6);
+    const sy = img.height / STRIPS;
+    for (let i = 0; i < STRIPS; i++) {
+      const dNear = i / (STRIPS - 1);            // 0=위(멀다) → 1=아래(가깝다)
+      const depth = 0.25 + dNear * 0.75;
+      const shX = px * maxShift * depth, shY = py * maxShift * 0.5 * depth;
+      const dyS = by + (i / STRIPS) * dh;
+      c.drawImage(img, 0, i * sy, img.width, sy + 1, bx + shX, dyS + shY, dw, dh / STRIPS + 1.2);
+    }
+    // 깊이 안개(위쪽 원경을 살짝 흐리게 보이도록 밝은 베일)
+    const fog = c.createLinearGradient(0, 0, 0, h * 0.6);
+    fog.addColorStop(0, a.aura < -0.1 ? 'rgba(140,170,220,0.10)' : 'rgba(255,240,210,0.10)');
+    fog.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = fog; c.fillRect(0, 0, w, h * 0.6);
+    // 비네트
+    const vg = c.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.75);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.34)');
+    c.fillStyle = vg; c.fillRect(0, 0, w, h);
+  };
+
+  /* ---------- 필름 룩 프리셋 (마스터 그레이딩) ---------- */
+  AuraCore.FILM_PRESETS = {
+    none:     { name: 'AURA 기본', desc: '자동 보정' },
+    portra:   { name: 'Portra 400', desc: '따뜻한 살결·부드러운 섀도우',
+      expo: 1.06, contrast: 1.05, sat: 1.08, warmShift: 0.045, liftR: .03, liftG: .02, liftB: .01, hlDesat: .15, grain: .05 },
+    cinestill:{ name: 'CineStill 800T', desc: '틸 섀도우·붉은 헐레이션',
+      expo: 1.02, contrast: 1.12, sat: 1.02, warmShift: -0.03, liftR: 0, liftG: .015, liftB: .04, halation: .5, grain: .08 },
+    fuji:     { name: 'Fuji Superia', desc: '초록 결·시원한 미드톤',
+      expo: 1.04, contrast: 1.08, sat: 1.12, warmShift: -0.01, liftR: 0, liftG: .03, liftB: .015, grain: .06 },
+    noir:     { name: 'Noir B&W', desc: '고대비 흑백·짙은 그레인',
+      expo: 1.0, contrast: 1.3, sat: 0, warmShift: 0, liftR: .01, liftG: .01, liftB: .01, grain: .12 },
+  };
+  AuraCore.filmGrade = function (src, key) {
+    const P = AuraCore.FILM_PRESETS[key];
+    if (!P || key === 'none') return AuraCore.grade(src);
+    const maxD = 900; let iw = src.width || src.naturalWidth, ih = src.height || src.naturalHeight;
+    const scl = Math.min(1, maxD / Math.max(iw, ih)); iw = Math.round(iw * scl); ih = Math.round(ih * scl);
+    const before = document.createElement('canvas'); before.width = iw; before.height = ih;
+    const ob = before.getContext('2d'); ob.drawImage(src, 0, 0, iw, ih);
+    const d = ob.getImageData(0, 0, iw, ih).data;
+    const after = document.createElement('canvas'); after.width = iw; after.height = ih;
+    const oa = after.getContext('2d'); const out = oa.createImageData(iw, ih); const o = out.data;
+    const cx = iw / 2, cy = ih / 2, mr = Math.hypot(cx, cy);
+    for (let y = 0; y < ih; y++) for (let x = 0; x < iw; x++) {
+      const i = (y * iw + x) * 4;
+      let r = d[i] / 255 * P.expo, g = d[i + 1] / 255 * P.expo, b = d[i + 2] / 255 * P.expo;
+      r = (r - .5) * P.contrast + .5; g = (g - .5) * P.contrast + .5; b = (b - .5) * P.contrast + .5;
+      let lum = .299 * r + .587 * g + .114 * b;
+      r = lum + (r - lum) * P.sat; g = lum + (g - lum) * P.sat; b = lum + (b - lum) * P.sat;
+      r += P.warmShift; b -= P.warmShift;                                   // 색온도
+      const shadow = Math.max(0, .5 - lum) * 2;                             // 섀도우 리프트(필름 페이드)
+      r += P.liftR * shadow; g += P.liftG * shadow; b += P.liftB * shadow;
+      if (P.hlDesat) { const hl = Math.max(0, lum - .6) * 2.5; const l2 = .299 * r + .587 * g + .114 * b;
+        r = r + (l2 - r) * P.hlDesat * hl; g = g + (l2 - g) * P.hlDesat * hl; b = b + (l2 - b) * P.hlDesat * hl; }
+      if (P.halation) { const hl = Math.max(0, lum - .78) * 4; r += P.halation * .12 * hl; g += P.halation * .03 * hl; } // 붉은 번짐
+      if (P.grain) { const n = (Math.sin((x * 12.9898 + y * 78.233)) * 43758.5453 % 1) * P.grain * .5; r += n; g += n; b += n; }
+      const vf = 1 - .22 * Math.pow(Math.hypot(x - cx, y - cy) / mr, 2.2); r *= vf; g *= vf; b *= vf;
+      o[i] = Math.max(0, Math.min(255, r * 255)); o[i + 1] = Math.max(0, Math.min(255, g * 255)); o[i + 2] = Math.max(0, Math.min(255, b * 255)); o[i + 3] = 255;
+    }
+    oa.putImageData(out, 0, 0);
+    return { before, after, edits: [['필름', P.name], ['특성', P.desc]] };
+  };
+
   /* ---------- 미적 정체성 집계 ---------- */
   AuraCore.identity = function (analyses) {
     if (!analyses.length) return null;

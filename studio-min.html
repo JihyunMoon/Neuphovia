@@ -124,11 +124,11 @@
   </div>
 </div>
 
-<script src="aura-core.js?v=3"></script>
+<script src="aura-core.js?v=4"></script>
 <script>
 const $=id=>document.getElementById(id);
 let library=[], current=null, curImg=null, mode='analyze';
-let overlay='golden', graded=null, divider=.5, strength=1, composeData=null, showOrig=false;
+let overlay='golden', graded=null, divider=.5, strength=1, composeData=null, showOrig=false, filmKey='none';
 
 async function refresh(){
   try{ library=await AuraCore.db.all(); }catch(e){ library=library||[]; }
@@ -199,12 +199,15 @@ function render(){
     $('cSave').onclick=()=>{const dl=document.createElement('a');dl.download='aura_golden.png';dl.href=composeData.result.toDataURL('image/png');dl.click();};
   }
   else if(mode==='enhance'){
-    if(!graded)graded=AuraCore.grade(curImg);drawEnhance(c,w,h);
+    if(!graded)graded=AuraCore.filmGrade(curImg,filmKey);drawEnhance(c,w,h);
     const e=graded.edits.slice(0,3).map(x=>`${x[0]} ${x[1]}`).join(' · ');
+    const chips=Object.keys(AuraCore.FILM_PRESETS).map(k=>`<button class="ghost ${filmKey===k?'on':''}" data-f="${k}">${AuraCore.FILM_PRESETS[k].name}</button>`).join('');
     $('content').innerHTML=`
+      <div class="row" style="margin-top:0">${chips}</div>
       <div class="strength"><span>원본</span><input type="range" id="st" min="0" max="100" value="${Math.round(strength*100)}"><span>보정</span></div>
-      <div class="line mut" style="margin-top:14px;font-size:13px">${e}</div>
-      <div class="hint">사진 위를 드래그해 before / after 비교</div>`;
+      <div class="line mut" style="margin-top:12px;font-size:13px">${e}</div>
+      <div class="hint">사진 위를 드래그해 before / after 비교 · 프리셋으로 필름 룩 전환</div>`;
+    document.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{filmKey=b.dataset.f;graded=null;render();});
     $('st').oninput=ev=>{strength=ev.target.value/100;const {c,w,h}=setupHero();drawEnhance(c,w,h);};
   }
   else if(mode==='living'){
@@ -212,10 +215,12 @@ function render(){
     $('content').innerHTML=`
       <div class="line"><b>살아있는 사진</b> <span class="mut">· Ken Burns φ + 빛 + 입자</span></div>
       <div class="row">
+        <button class="ghost ${parallaxOn?'on':''}" id="lvPx">🏔 2.5D 패럴랙스</button>
         <button class="ghost" id="lvSong">♪ 노래와 함께</button>
         <button class="ghost" id="lvRec">⏺ 영상 저장 (webm)</button>
       </div>
-      <div class="hint" id="lvHint">정지 사진이 황금점을 향해 숨 쉬듯 움직입니다</div>`;
+      <div class="hint" id="lvHint">${parallaxOn?'사진 위에서 마우스를 움직여 보세요 — 깊이가 반응합니다':'정지 사진이 황금점을 향해 숨 쉬듯 움직입니다'}</div>`;
+    $('lvPx').onclick=()=>{parallaxOn=!parallaxOn;render();};
     $('lvSong').onclick=()=>{if(AuraCore.audio.playing)return;livingSong=true;const dur=AuraCore.audio.play(current.analysis,()=>{livingSong=false;});livingSongT0=performance.now();livingSongDur=dur;};
     $('lvRec').onclick=()=>recordLiving();
   }
@@ -244,10 +249,19 @@ function drawCompose(c,w,h){const a=current.analysis;
     c.strokeStyle='rgba(255,255,255,.28)';c.lineWidth=1;[0.382,0.618].forEach(f=>{c.beginPath();c.moveTo(dx+dw*f,dy);c.lineTo(dx+dw*f,dy+dh);c.stroke();c.beginPath();c.moveTo(dx,dy+dh*f);c.lineTo(dx+dw,dy+dh*f);c.stroke();});
     c.fillStyle='rgba(79,214,166,.95)';const tp=composeData.target;c.beginPath();c.arc(dx+dw*tp.x,dy+dh*tp.y,6,0,7);c.fill();}
 }
-/* Living Photo 루프 */
+/* Living Photo 루프 (+2.5D 패럴랙스) */
 let livingRAF=null,livingSong=false,livingSongT0=0,livingSongDur=0;
+let parallaxOn=false,pxTarget=0,pyTarget=0,pxCur=0,pyCur=0,pointerIn=false;
 function livingEnergy(){if(!livingSong)return .45;const p=Math.min(1,(performance.now()-livingSongT0)/(livingSongDur*1000));return p<.35?.4+.3*p/.35:p<.7?.55+.35*(p-.35)/.35:p<.85?.95:Math.max(.3,.95-(p-.85)/.15*.6);}
-function startLiving(){cancelAnimationFrame(livingRAF);const step=()=>{if(mode!=='living'){livingRAF=null;return;}const {c,w,h}=setupHero();AuraCore.livingFrame(c,w,h,curImg,current.analysis,performance.now()/1000,livingEnergy());livingRAF=requestAnimationFrame(step);};livingRAF=requestAnimationFrame(step);}
+function startLiving(){cancelAnimationFrame(livingRAF);const step=()=>{if(mode!=='living'){livingRAF=null;return;}const {c,w,h}=setupHero();const t=performance.now()/1000;
+  if(parallaxOn){
+    if(!pointerIn){pxTarget=Math.sin(t*.4)*.6;pyTarget=Math.cos(t*.31)*.35;}
+    pxCur+=(pxTarget-pxCur)*.08;pyCur+=(pyTarget-pyCur)*.08;
+    AuraCore.parallaxFrame(c,w,h,curImg,current.analysis,t,pxCur,pyCur,livingEnergy());
+  } else AuraCore.livingFrame(c,w,h,curImg,current.analysis,t,livingEnergy());
+  livingRAF=requestAnimationFrame(step);};livingRAF=requestAnimationFrame(step);}
+$('hero').addEventListener('pointermove',e=>{if(mode!=='living'||!parallaxOn)return;pointerIn=true;const r=$('hero').getBoundingClientRect();pxTarget=((e.clientX-r.left)/r.width-.5)*2;pyTarget=((e.clientY-r.top)/r.height-.5)*2;});
+$('hero').addEventListener('pointerleave',()=>{pointerIn=false;});
 function recordLiving(){
   AuraCore.audio.ensure();
   const cv=$('hero');const stream=cv.captureStream(30);
