@@ -116,6 +116,7 @@
       <button data-m="analyze" class="on">분석</button>
       <button data-m="compose">구도 φ</button>
       <button data-m="enhance">재가공</button>
+      <button data-m="living">무빙</button>
       <button data-m="song">노래</button>
       <button data-m="identity">정체성</button>
     </div>
@@ -123,7 +124,7 @@
   </div>
 </div>
 
-<script src="aura-core.js"></script>
+<script src="aura-core.js?v=3"></script>
 <script>
 const $=id=>document.getElementById(id);
 let library=[], current=null, curImg=null, mode='analyze';
@@ -206,6 +207,18 @@ function render(){
       <div class="hint">사진 위를 드래그해 before / after 비교</div>`;
     $('st').oninput=ev=>{strength=ev.target.value/100;const {c,w,h}=setupHero();drawEnhance(c,w,h);};
   }
+  else if(mode==='living'){
+    startLiving();
+    $('content').innerHTML=`
+      <div class="line"><b>살아있는 사진</b> <span class="mut">· Ken Burns φ + 빛 + 입자</span></div>
+      <div class="row">
+        <button class="ghost" id="lvSong">♪ 노래와 함께</button>
+        <button class="ghost" id="lvRec">⏺ 영상 저장 (webm)</button>
+      </div>
+      <div class="hint" id="lvHint">정지 사진이 황금점을 향해 숨 쉬듯 움직입니다</div>`;
+    $('lvSong').onclick=()=>{if(AuraCore.audio.playing)return;livingSong=true;const dur=AuraCore.audio.play(current.analysis,()=>{livingSong=false;});livingSongT0=performance.now();livingSongDur=dur;};
+    $('lvRec').onclick=()=>recordLiving();
+  }
   else if(mode==='song'){
     drawWave(c,w,h,false);
     $('content').innerHTML=`<button class="play" id="pl">▶</button><div class="line mut" style="margin-top:14px;font-size:13px">${AuraCore.musicArc(a)}</div>`;
@@ -230,6 +243,24 @@ function drawCompose(c,w,h){const a=current.analysis;
   } else { const r=composeData.result;const {dw,dh,dx,dy}=fitImg(r,w,h);c.drawImage(r,dx,dy,dw,dh);
     c.strokeStyle='rgba(255,255,255,.28)';c.lineWidth=1;[0.382,0.618].forEach(f=>{c.beginPath();c.moveTo(dx+dw*f,dy);c.lineTo(dx+dw*f,dy+dh);c.stroke();c.beginPath();c.moveTo(dx,dy+dh*f);c.lineTo(dx+dw,dy+dh*f);c.stroke();});
     c.fillStyle='rgba(79,214,166,.95)';const tp=composeData.target;c.beginPath();c.arc(dx+dw*tp.x,dy+dh*tp.y,6,0,7);c.fill();}
+}
+/* Living Photo 루프 */
+let livingRAF=null,livingSong=false,livingSongT0=0,livingSongDur=0;
+function livingEnergy(){if(!livingSong)return .45;const p=Math.min(1,(performance.now()-livingSongT0)/(livingSongDur*1000));return p<.35?.4+.3*p/.35:p<.7?.55+.35*(p-.35)/.35:p<.85?.95:Math.max(.3,.95-(p-.85)/.15*.6);}
+function startLiving(){cancelAnimationFrame(livingRAF);const step=()=>{if(mode!=='living'){livingRAF=null;return;}const {c,w,h}=setupHero();AuraCore.livingFrame(c,w,h,curImg,current.analysis,performance.now()/1000,livingEnergy());livingRAF=requestAnimationFrame(step);};livingRAF=requestAnimationFrame(step);}
+function recordLiving(){
+  AuraCore.audio.ensure();
+  const cv=$('hero');const stream=cv.captureStream(30);
+  const tracks=[...stream.getVideoTracks(),...AuraCore.audio.dest.stream.getAudioTracks()];
+  const ms=new MediaStream(tracks);
+  let mime='video/webm;codecs=vp9,opus';if(!MediaRecorder.isTypeSupported(mime))mime='video/webm';
+  const mr=new MediaRecorder(ms,{mimeType:mime});const chunks=[];
+  mr.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
+  mr.onstop=()=>{const blob=new Blob(chunks,{type:'video/webm'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='aura_living.webm';a.click();$('lvHint').textContent='✓ 영상 저장 완료';};
+  $('lvHint').textContent='● 녹화 중… 노래가 끝나면 자동 저장';
+  mr.start();livingSong=true;const dur=AuraCore.audio.play(current.analysis,()=>{livingSong=false;});
+  livingSongT0=performance.now();livingSongDur=dur;
+  setTimeout(()=>mr.stop(),(dur+.4)*1000);
 }
 let heroDrag=false;
 $('hero').addEventListener('pointerdown',e=>{if(mode!=='enhance'||!graded)return;heroDrag=true;$('hero').setPointerCapture(e.pointerId);moveDiv(e);});

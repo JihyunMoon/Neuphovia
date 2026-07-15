@@ -221,6 +221,49 @@
     };
   };
 
+  /* ---------- Living Photo · 무빙 이미지 엔진 ----------
+     Ken Burns(황금점 향해 느린 줌·팬) + 라이트 릭 스윕 + 부유 입자 + 비네트.
+     energy(0..1)를 넣으면 노래와 동기화된다. */
+  AuraCore.livingFrame = function (c, w, h, img, a, t, energy) {
+    energy = energy === undefined ? 0.45 : energy;
+    const dark = a.aura < -0.1;
+    // Ken Burns: 12초 주기로 1.0→1.12 줌하며 초점(황금점 방향)으로 팬
+    const cyc = (t % 12) / 12, ease = 0.5 - 0.5 * Math.cos(cyc * Math.PI * 2);
+    const zoom = 1.04 + 0.09 * ease + energy * 0.02;
+    const fx = a.centroid.x, fy = a.centroid.y;
+    const ar = img.width / img.height, cr = w / h;
+    let dw, dh; if (ar > cr) { dh = h * zoom; dw = dh * ar; } else { dw = w * zoom; dh = dw / ar; }
+    const panX = (fx - 0.5) * (dw - w) * ease, panY = (fy - 0.5) * (dh - h) * ease;
+    const dx = (w - dw) / 2 - panX, dy = (h - dh) / 2 - panY;
+    c.fillStyle = '#000'; c.fillRect(0, 0, w, h);
+    c.drawImage(img, dx, dy, dw, dh);
+    // 라이트 릭: 주조색 광선이 천천히 가로지름
+    const p = a.palette[0];
+    const lx = ((t * 0.05) % 1.6 - 0.3) * w;
+    const lg = c.createLinearGradient(lx, 0, lx + w * 0.45, h);
+    lg.addColorStop(0, 'rgba(0,0,0,0)');
+    lg.addColorStop(0.5, `rgba(${Math.min(255, p.r + 90)},${Math.min(255, p.g + 70)},${Math.min(255, p.b + 50)},${(dark ? 0.10 : 0.16) * (0.6 + energy * 0.7)})`);
+    lg.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalCompositeOperation = 'screen'; c.fillStyle = lg; c.fillRect(0, 0, w, h);
+    // 부유 입자(먼지/반딧불) — 결정적 시드로 프레임 간 연속
+    c.globalCompositeOperation = 'lighter';
+    const N = Math.round(16 + energy * 22);
+    for (let i = 0; i < N; i++) {
+      const sd = i * 12.9898, r1 = (Math.sin(sd) * 43758.5453) % 1, r2 = (Math.sin(sd * 1.7) * 24634.63) % 1;
+      const px = ((Math.abs(r1) + t * (0.008 + Math.abs(r2) * 0.02)) % 1) * w;
+      const py = ((Math.abs(r2) + t * 0.012 * (i % 2 ? 1 : -1) + 10) % 1) * h;
+      const tw = 0.35 + 0.65 * Math.abs(Math.sin(t * (0.8 + Math.abs(r1)) + i));
+      const sz = 0.8 + Math.abs(r2) * 2.2 + energy * 1.2;
+      c.fillStyle = dark ? `rgba(200,220,255,${0.28 * tw})` : `rgba(255,240,200,${0.3 * tw})`;
+      c.beginPath(); c.arc(px, py, sz, 0, 7); c.fill();
+    }
+    c.globalCompositeOperation = 'source-over';
+    // 비네트 + 미세 그레인 대비
+    const vg = c.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.75);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.32)');
+    c.fillStyle = vg; c.fillRect(0, 0, w, h);
+  };
+
   /* ---------- 미적 정체성 집계 ---------- */
   AuraCore.identity = function (analyses) {
     if (!analyses.length) return null;
