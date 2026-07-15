@@ -150,19 +150,76 @@
     } else this.ctx.resume();
   };
   Audio.tone = function (fr, t, dur, vol, type) { const o = this.ctx.createOscillator(), g = this.ctx.createGain(); o.type = type || 'sine'; o.frequency.value = fr; o.connect(g); g.connect(this.master); g.gain.setValueAtTime(1e-4, t); g.gain.linearRampToValueAtTime(vol, t + .03); g.gain.exponentialRampToValueAtTime(1e-4, t + dur); o.start(t); o.stop(t + dur + .05); };
+  // 다성부 보이스 (ADSR + 스테레오 팬 + 디튠)
+  Audio.note = function (freq, t, dur, opt) {
+    opt = opt || {}; const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = opt.type || 'sine'; o.frequency.value = freq; if (opt.detune) o.detune.value = opt.detune;
+    o.connect(g); let last = g;
+    if (opt.pan !== undefined && this.ctx.createStereoPanner) { const p = this.ctx.createStereoPanner(); p.pan.value = opt.pan; g.connect(p); last = p; }
+    last.connect(this.master);
+    const atk = opt.attack || .02, vol = opt.vol || .1;
+    g.gain.setValueAtTime(1e-4, t); g.gain.linearRampToValueAtTime(vol, t + atk);
+    g.gain.exponentialRampToValueAtTime(1e-4, t + dur);
+    o.start(t); o.stop(t + dur + .05);
+  };
+  // 코드 진행 + 베이스 + 이미지 유래 멜로디 + 셰머 + 웅장한 해피엔딩
   Audio.play = function (a, onEnd) {
-    this.ensure(); const t = this.ctx.currentTime;
-    const root = 48 + Math.floor(((a.domHue) % 360) / 360 * 10), tempo = .5 - a.sat * .18, dark = a.aura < -.1;
-    const minor = [0, 2, 3, 7, 10, 12], major = [0, 2, 4, 7, 9, 12, 16]; let time = t; const p1 = dark ? minor : major;
-    for (let i = 0; i < 6; i++) { this.tone(m2f(root + p1[i % p1.length]), time, tempo * 2.4, .12, dark ? 'triangle' : 'sine'); time += tempo; }
-    this.tone(m2f(root - 12), t, tempo * 8, .1, 'sine'); this.tone(m2f(root - 5), t, tempo * 8, .08, 'sine');
-    for (let i = 0; i < 6; i++) { this.tone(m2f(root + (dark ? minor : major)[i % 6] + 7), time, tempo * 1.8, .11, 'sine'); time += tempo * .8; }
-    const gr = root + 12, rt = time + .1; [0, 4, 7, 12, 16].forEach(s => { this.tone(m2f(gr + s), rt, 2.8, .13, 'sine'); this.tone(m2f(gr + s + 12), rt, 2.6, .06, 'triangle'); });
-    [0, 4, 7, 12, 16, 19].forEach((s, i) => this.tone(m2f(gr + s), rt + i * .12, 1.6, .12, 'sine')); this.tone(m2f(gr - 24), rt, 3, .12, 'sine');
-    this.playing = true; const total = (time - t) + 3.3; setTimeout(() => { this.playing = false; if (onEnd) onEnd(); }, total * 1000);
+    this.ensure(); const t0 = this.ctx.currentTime + .06;
+    const dark = a.aura < -.1;
+    const root = (dark ? 45 : 48) + Math.floor(((a.domHue) % 360) / 360 * 12);
+    const scale = dark ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11];
+    const beat = Math.max(.32, .48 - a.sat * .12);
+    // 진행: 어두우면 i-VI-III-VII, 밝으면 I-V-vi-IV
+    const prog = dark ? [[0, 3, 7], [8, 12, 15], [3, 7, 10], [10, 14, 17]]
+                      : [[0, 4, 7], [7, 11, 14], [9, 12, 16], [5, 9, 12]];
+    const mel = a.wave; let t = t0;
+    for (let b = 0; b < prog.length; b++) {
+      const ch = prog[b], barLen = beat * 4;
+      this.note(m2f(root - 12 + ch[0]), t, barLen * .95, { type: 'triangle', vol: .13, attack: .04 }); // 베이스
+      ch.forEach((s, i) => { // 패드(디튠 2겹)
+        this.note(m2f(root + s), t, barLen, { type: 'sine', vol: .055, attack: .3, pan: (i - 1) * .35 });
+        this.note(m2f(root + s), t, barLen, { type: 'triangle', vol: .028, detune: 7, attack: .3 });
+      });
+      for (let n = 0; n < 8; n++) { // 멜로디(이미지 파형 → 음계)
+        const w = mel[(b * 8 + n) % mel.length]; if (w < .12) continue; // 어두운 열은 쉼표
+        const deg = Math.min(scale.length - 1, Math.floor(w * scale.length)), oct = w > .66 ? 12 : 0;
+        const dur = (n % 2 === 0 ? beat * .9 : beat * .5);
+        this.note(m2f(root + 12 + scale[deg] + oct), t + n * beat * .5, dur, { type: 'triangle', vol: .085, attack: .01, pan: (w - .5) * .5 });
+        if (n % 4 === 0) this.note(m2f(root + 24 + scale[deg]), t + n * beat * .5, beat * 1.6, { type: 'sine', vol: .03, attack: .02, pan: .4 }); // 셰머
+      }
+      t += barLen;
+    }
+    // 웅장한 해피엔딩 — 무조건 장조 I로 귀결
+    const gr = root + 12, maj = [0, 4, 7, 12, 16, 19];
+    this.note(m2f(gr - 24), t, 4, { type: 'triangle', vol: .14, attack: .05 });
+    maj.forEach((s, i) => this.note(m2f(gr + s), t + .02 * i, 3.6, { type: 'sine', vol: .1, attack: .05, pan: (i % 2 ? .3 : -.3) }));
+    [0, 4, 7, 12, 16, 19, 24].forEach((s, i) => this.note(m2f(gr + s), t + i * .13, 1.4, { type: 'triangle', vol: .09, attack: .01 })); // 상행 플루리시
+    t += 4;
+    const total = t - t0; this.playing = true;
+    setTimeout(() => { this.playing = false; if (onEnd) onEnd(); }, total * 1000);
     return total;
   };
   AuraCore.audio = Audio;
+
+  /* ---------- 황금비 구도 재구성 (content-aware recrop → AI 재가공) ---------- */
+  AuraCore.recompose = function (img, a) {
+    const iw = img.width || img.naturalWidth, ih = img.height || img.naturalHeight;
+    const phi = 1.618, landscape = iw >= ih, cropAR = landscape ? phi : 1 / phi;
+    let cw, ch;
+    if (iw / ih > cropAR) { ch = ih; cw = ch * cropAR; } else { cw = iw; ch = cw / cropAR; }
+    const fx = a.centroid.x * iw, fy = a.centroid.y * ih;
+    const tx = a.centroid.x < .5 ? .382 : .618, ty = a.centroid.y < .5 ? .382 : .618; // 가까운 황금 교차점
+    let x0 = Math.max(0, Math.min(iw - cw, fx - tx * cw));
+    let y0 = Math.max(0, Math.min(ih - ch, fy - ty * ch));
+    const crop = document.createElement('canvas'); crop.width = Math.round(cw); crop.height = Math.round(ch);
+    crop.getContext('2d').drawImage(img, x0, y0, cw, ch, 0, 0, Math.round(cw), Math.round(ch));
+    const graded = AuraCore.grade(crop).after; // 색·톤 AI 재가공
+    return {
+      result: graded, cropRect: { x: x0 / iw, y: y0 / ih, w: cw / iw, h: ch / ih },
+      target: { x: tx, y: ty }, focal: a.centroid,
+      note: `피사체를 황금 교차점(φ ${tx})으로 재배치하고 색·톤을 재가공했습니다.`
+    };
+  };
 
   /* ---------- 미적 정체성 집계 ---------- */
   AuraCore.identity = function (analyses) {

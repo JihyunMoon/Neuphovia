@@ -59,8 +59,8 @@
   .hero{border-radius:18px;overflow:hidden;background:#111;box-shadow:var(--shadow);}
   .hero canvas{display:block;width:100%;height:auto;max-height:62vh;object-fit:contain;background:#111;}
   /* segmented — 미니멀 필 */
-  .seg{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:100px;padding:4px;margin:18px auto;width:max-content;box-shadow:var(--shadow);}
-  .seg button{border:0;background:none;border-radius:100px;padding:8px 18px;font-size:13px;color:var(--muted);font-weight:600;}
+  .seg{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:100px;padding:4px;margin:18px auto;width:max-content;max-width:100%;box-shadow:var(--shadow);flex-wrap:wrap;justify-content:center;}
+  .seg button{border:0;background:none;border-radius:100px;padding:8px 15px;font-size:13px;color:var(--muted);font-weight:600;white-space:nowrap;}
   .seg button.on{background:var(--ink);color:#fff;}
   .content{min-height:60px;}
   .line{text-align:center;color:var(--ink);font-size:15px;line-height:1.6;}
@@ -114,6 +114,7 @@
     <div class="hero"><canvas id="hero"></canvas></div>
     <div class="seg">
       <button data-m="analyze" class="on">분석</button>
+      <button data-m="compose">구도 φ</button>
       <button data-m="enhance">재가공</button>
       <button data-m="song">노래</button>
       <button data-m="identity">정체성</button>
@@ -126,7 +127,7 @@
 <script>
 const $=id=>document.getElementById(id);
 let library=[], current=null, curImg=null, mode='analyze';
-let overlay='golden', graded=null, divider=.5, strength=1;
+let overlay='golden', graded=null, divider=.5, strength=1, composeData=null, showOrig=false;
 
 async function refresh(){
   try{ library=await AuraCore.db.all(); }catch(e){ library=library||[]; }
@@ -159,7 +160,7 @@ $('file').addEventListener('change',e=>{[...e.target.files].forEach(f=>{const im
 function open(it){current=it;curImg=new Image();curImg.onload=()=>{setMode('analyze');};curImg.src=it.thumb;$('detail').classList.add('on');document.body.style.overflow='hidden';}
 $('back').onclick=()=>{$('detail').classList.remove('on');document.body.style.overflow='';};
 document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
-function setMode(m){mode=m;document.querySelectorAll('.seg button').forEach(x=>x.classList.toggle('on',x.dataset.m===m));graded=null;render();}
+function setMode(m){mode=m;document.querySelectorAll('.seg button').forEach(x=>x.classList.toggle('on',x.dataset.m===m));graded=null;composeData=null;showOrig=false;render();}
 
 function setupHero(){const cv=$('hero');const rect=cv.getBoundingClientRect();const w=cv.parentElement.clientWidth;let h;
   if(mode==='identity'){h=Math.round(w*0.6);}else{h=Math.round(w*(curImg.height/curImg.width));h=Math.min(h,Math.round(window.innerHeight*0.62));}
@@ -179,6 +180,22 @@ function render(){
       <div class="line mut" style="margin-top:16px;font-size:13px">${AuraCore.guidelines(a)[0]}</div>
       <div class="row"><button class="ghost ${overlay==='golden'?'on':''}" id="ovg">황금비 안내</button></div>`;
     $('ovg').onclick=()=>{overlay=overlay==='golden'?'none':'golden';render();};
+  }
+  else if(mode==='compose'){
+    if(!composeData)composeData=AuraCore.recompose(curImg,a);
+    drawCompose(c,w,h);
+    $('content').innerHTML=`
+      <div class="line"><b>황금비 φ 재구성</b> <span class="mut">· content-aware recrop + AI 색·톤 재가공</span></div>
+      <div class="line mut" style="margin-top:8px;font-size:13px">${composeData.note}</div>
+      <div class="row">
+        <button class="ghost ${showOrig?'':'on'}" id="cAfter">재구성 φ</button>
+        <button class="ghost ${showOrig?'on':''}" id="cBefore">원본 구도</button>
+        <button class="ghost" id="cSave">⬇ 저장</button>
+      </div>
+      <div class="hint">원본은 피사체가 정중앙(약한 구도) → 재구성은 황금 교차점에 배치</div>`;
+    $('cAfter').onclick=()=>{showOrig=false;render();};
+    $('cBefore').onclick=()=>{showOrig=true;render();};
+    $('cSave').onclick=()=>{const dl=document.createElement('a');dl.download='aura_golden.png';dl.href=composeData.result.toDataURL('image/png');dl.click();};
   }
   else if(mode==='enhance'){
     if(!graded)graded=AuraCore.grade(curImg);drawEnhance(c,w,h);
@@ -203,6 +220,17 @@ function render(){
   }
 }
 function drawEnhance(c,w,h){const {dw,dh,dx,dy}=fitImg(graded.before,w,h);c.drawImage(graded.before,dx,dy,dw,dh);c.save();c.globalAlpha=strength;c.drawImage(graded.after,dx,dy,dw,dh);c.restore();const divX=dx+dw*divider;c.save();c.beginPath();c.rect(dx,dy,dw*divider,dh);c.clip();c.drawImage(graded.before,dx,dy,dw,dh);c.restore();c.strokeStyle='rgba(255,255,255,.9)';c.lineWidth=2;c.beginPath();c.moveTo(divX,dy);c.lineTo(divX,dy+dh);c.stroke();c.fillStyle='#fff';c.beginPath();c.arc(divX,dy+dh/2,11,0,7);c.fill();c.fillStyle='#111';c.font='11px sans-serif';c.textAlign='center';c.fillText('⇄',divX,dy+dh/2+4);}
+function drawCompose(c,w,h){const a=current.analysis;
+  if(showOrig){ // 원본 + 황금 격자 + 초점(빨강)·목표(초록)·크롭영역
+    const {dw,dh,dx,dy}=fitImg(curImg,w,h);c.drawImage(curImg,dx,dy,dw,dh);
+    c.strokeStyle='rgba(255,255,255,.4)';c.lineWidth=1;[0.382,0.618].forEach(f=>{c.beginPath();c.moveTo(dx+dw*f,dy);c.lineTo(dx+dw*f,dy+dh);c.stroke();c.beginPath();c.moveTo(dx,dy+dh*f);c.lineTo(dx+dw,dy+dh*f);c.stroke();});
+    const cr=composeData.cropRect;c.strokeStyle='rgba(255,255,255,.9)';c.setLineDash([6,4]);c.strokeRect(dx+dw*cr.x,dy+dh*cr.y,dw*cr.w,dh*cr.h);c.setLineDash([]);
+    c.fillStyle='rgba(232,101,79,.95)';c.beginPath();c.arc(dx+dw*a.centroid.x,dy+dh*a.centroid.y,6,0,7);c.fill(); // 현재 초점
+    c.fillStyle='rgba(79,214,166,.95)';const tp=composeData.target;c.beginPath();c.arc(dx+dw*(cr.x+cr.w*tp.x),dy+dh*(cr.y+cr.h*tp.y),6,0,7);c.fill(); // 목표 황금점
+  } else { const r=composeData.result;const {dw,dh,dx,dy}=fitImg(r,w,h);c.drawImage(r,dx,dy,dw,dh);
+    c.strokeStyle='rgba(255,255,255,.28)';c.lineWidth=1;[0.382,0.618].forEach(f=>{c.beginPath();c.moveTo(dx+dw*f,dy);c.lineTo(dx+dw*f,dy+dh);c.stroke();c.beginPath();c.moveTo(dx,dy+dh*f);c.lineTo(dx+dw,dy+dh*f);c.stroke();});
+    c.fillStyle='rgba(79,214,166,.95)';const tp=composeData.target;c.beginPath();c.arc(dx+dw*tp.x,dy+dh*tp.y,6,0,7);c.fill();}
+}
 let heroDrag=false;
 $('hero').addEventListener('pointerdown',e=>{if(mode!=='enhance'||!graded)return;heroDrag=true;$('hero').setPointerCapture(e.pointerId);moveDiv(e);});
 $('hero').addEventListener('pointermove',e=>{if(heroDrag)moveDiv(e);});
