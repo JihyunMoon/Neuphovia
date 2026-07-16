@@ -136,64 +136,182 @@
     return { before, after, edits };
   };
 
-  /* ---------- 소니피케이션 (해피엔딩) ---------- */
-  const Audio = { ctx: null, master: null, dest: null, playing: false };
+  /* ---------- AURA Sound Engine v2 — 프로 작곡 · 신시시스 ----------
+     파형 레벨 프로덕션(컨볼루션 리버브·핑퐁 딜레이·버스 컴프레서) 위에
+     뮤지션 작법을 융합: 기능화성(7th·9th·백도어 케이던스), 보이스리딩,
+     모티프 전개(이조·전위·종지 호흡), 스윙·휴머나이즈, 섹션 폼 A→A'→Climax. */
+  const Audio = { ctx: null, playing: false };
   function m2f(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+
   Audio.ensure = function () {
-    if (!this.ctx) {
-      this.ctx = new (global.AudioContext || global.webkitAudioContext)();
-      this.master = this.ctx.createGain(); this.master.gain.value = .22;
-      const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2200;
-      const dl = this.ctx.createDelay(); dl.delayTime.value = .3; const fb = this.ctx.createGain(); fb.gain.value = .28;
-      this.master.connect(f); f.connect(this.ctx.destination); this.master.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(this.ctx.destination);
-      this.dest = this.ctx.createMediaStreamDestination(); this.master.connect(this.dest);
-    } else this.ctx.resume();
+    if (this.ctx) { this.ctx.resume(); return; }
+    const ctx = this.ctx = new (global.AudioContext || global.webkitAudioContext)();
+    // 마스터 버스: 필터(섹션별 오픈) → 글루 컴프레서 → 아웃(+녹화 dest)
+    this.busFilter = ctx.createBiquadFilter(); this.busFilter.type = 'lowpass'; this.busFilter.frequency.value = 2400; this.busFilter.Q.value = .4;
+    this.comp = ctx.createDynamicsCompressor();
+    this.comp.threshold.value = -16; this.comp.knee.value = 18; this.comp.ratio.value = 3.2; this.comp.attack.value = .008; this.comp.release.value = .22;
+    this.master = ctx.createGain(); this.master.gain.value = .9;
+    this.busFilter.connect(this.comp); this.comp.connect(this.master); this.master.connect(ctx.destination);
+    this.dest = ctx.createMediaStreamDestination(); this.master.connect(this.dest);
+    // 컨볼루션 리버브 — 지수감쇠 스테레오 IR 2.4s
+    this.verb = ctx.createConvolver();
+    const sr = ctx.sampleRate, len = Math.floor(sr * 2.4), ir = ctx.createBuffer(2, len, sr);
+    for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6) * (ch ? .92 : 1); }
+    this.verb.buffer = ir;
+    const vg = ctx.createGain(); vg.gain.value = .34; this.verb.connect(vg); vg.connect(this.busFilter);
+    // 핑퐁 딜레이 (BPM 동기, play()에서 시간 설정)
+    this.dL = ctx.createDelay(); this.dR = ctx.createDelay();
+    const fb = ctx.createGain(); fb.gain.value = .32;
+    const mkPan = v => { if (ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = v; return p; } return ctx.createGain(); };
+    const pL = mkPan(-.6), pR = mkPan(.6);
+    this.dIn = ctx.createGain();
+    this.dIn.connect(this.dL); this.dL.connect(pL); pL.connect(this.busFilter);
+    this.dL.connect(this.dR); this.dR.connect(pR); pR.connect(this.busFilter);
+    this.dR.connect(fb); fb.connect(this.dL);
+    // 노이즈 버퍼 (햇·라이저)
+    const nb = ctx.createBuffer(1, sr * 2, sr), nd = nb.getChannelData(0);
+    for (let i = 0; i < sr * 2; i++) nd[i] = Math.random() * 2 - 1;
+    this.noiseBuf = nb;
   };
-  Audio.tone = function (fr, t, dur, vol, type) { const o = this.ctx.createOscillator(), g = this.ctx.createGain(); o.type = type || 'sine'; o.frequency.value = fr; o.connect(g); g.connect(this.master); g.gain.setValueAtTime(1e-4, t); g.gain.linearRampToValueAtTime(vol, t + .03); g.gain.exponentialRampToValueAtTime(1e-4, t + dur); o.start(t); o.stop(t + dur + .05); };
-  // 다성부 보이스 (ADSR + 스테레오 팬 + 디튠)
-  Audio.note = function (freq, t, dur, opt) {
-    opt = opt || {}; const o = this.ctx.createOscillator(), g = this.ctx.createGain();
-    o.type = opt.type || 'sine'; o.frequency.value = freq; if (opt.detune) o.detune.value = opt.detune;
-    o.connect(g); let last = g;
-    if (opt.pan !== undefined && this.ctx.createStereoPanner) { const p = this.ctx.createStereoPanner(); p.pan.value = opt.pan; g.connect(p); last = p; }
-    last.connect(this.master);
-    const atk = opt.attack || .02, vol = opt.vol || .1;
-    g.gain.setValueAtTime(1e-4, t); g.gain.linearRampToValueAtTime(vol, t + atk);
+  // 보이스 아웃: 드라이 + 리버브/딜레이 센드
+  Audio._out = function (node, opt) {
+    opt = opt || {}; const ctx = this.ctx; let last = node;
+    if (ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = opt.pan || 0; last.connect(p); last = p; }
+    last.connect(this.busFilter);
+    if (opt.verb) { const s = ctx.createGain(); s.gain.value = opt.verb; last.connect(s); s.connect(this.verb); }
+    if (opt.delay) { const s = ctx.createGain(); s.gain.value = opt.delay; last.connect(s); s.connect(this.dIn); }
+  };
+
+  /* --- 악기 --- */
+  // 감산합성 패드: 디튠 saw 2겹 + 필터 엔벌로프 (아날로그 스트링 무브먼트)
+  Audio.pad = function (freq, t, dur, vel, pan) {
+    const ctx = this.ctx, g = ctx.createGain(), f = ctx.createBiquadFilter();
+    f.type = 'lowpass'; f.Q.value = .7;
+    f.frequency.setValueAtTime(freq * 1.6, t);
+    f.frequency.linearRampToValueAtTime(freq * 5, t + dur * .5);
+    f.frequency.linearRampToValueAtTime(freq * 1.8, t + dur);
+    [-7, 7].forEach(dt => { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = freq; o.detune.value = dt; o.connect(f); o.start(t); o.stop(t + dur + .1); });
+    f.connect(g);
+    g.gain.setValueAtTime(1e-4, t); g.gain.linearRampToValueAtTime(vel, t + dur * .35);
+    g.gain.setValueAtTime(vel, t + dur * .7); g.gain.exponentialRampToValueAtTime(1e-4, t + dur);
+    this._out(g, { pan, verb: .5 });
+  };
+  // FM 일렉피아노: 2:1 모듈레이터 + 인덱스 감쇠 (DX 계열 EP)
+  Audio.ep = function (freq, t, dur, vel, pan, delaySend) {
+    const ctx = this.ctx;
+    const car = ctx.createOscillator(); car.frequency.value = freq;
+    const mod = ctx.createOscillator(); mod.frequency.value = freq * 2;
+    const mg = ctx.createGain();
+    mg.gain.setValueAtTime(freq * 1.5, t); mg.gain.exponentialRampToValueAtTime(freq * .02, t + Math.min(.5, dur));
+    mod.connect(mg); mg.connect(car.frequency);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(1e-4, t); g.gain.linearRampToValueAtTime(vel, t + .006);
+    g.gain.exponentialRampToValueAtTime(Math.max(1e-4, vel * .35), t + dur * .4);
     g.gain.exponentialRampToValueAtTime(1e-4, t + dur);
-    o.start(t); o.stop(t + dur + .05);
+    car.connect(g); this._out(g, { pan, verb: .3, delay: delaySend || 0 });
+    car.start(t); car.stop(t + dur + .1); mod.start(t); mod.stop(t + dur + .1);
   };
-  // 코드 진행 + 베이스 + 이미지 유래 멜로디 + 셰머 + 웅장한 해피엔딩
+  // 베이스: triangle + 서브 sine, 필터 스냅
+  Audio.bassN = function (freq, t, dur, vel) {
+    const ctx = this.ctx, g = ctx.createGain(), f = ctx.createBiquadFilter();
+    f.type = 'lowpass'; f.frequency.setValueAtTime(freq * 6, t); f.frequency.exponentialRampToValueAtTime(freq * 2, t + dur);
+    const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = freq;
+    const s = ctx.createOscillator(); s.type = 'sine'; s.frequency.value = freq / 2;
+    const sg = ctx.createGain(); sg.gain.value = .5;
+    o.connect(f); s.connect(sg); sg.connect(f); f.connect(g);
+    g.gain.setValueAtTime(1e-4, t); g.gain.linearRampToValueAtTime(vel, t + .015); g.gain.exponentialRampToValueAtTime(1e-4, t + dur);
+    this._out(g, { verb: .06 });
+    o.start(t); o.stop(t + dur + .05); s.start(t); s.stop(t + dur + .05);
+  };
+  // 드럼: 킥(피치 드롭) · 햇(하이패스 노이즈) · 라이저
+  Audio.kick = function (t, vel) { const ctx = this.ctx, o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(44, t + .12);
+    g.gain.setValueAtTime(vel, t); g.gain.exponentialRampToValueAtTime(1e-4, t + .24);
+    o.connect(g); this._out(g, { verb: .04 }); o.start(t); o.stop(t + .3); };
+  Audio.hat = function (t, vel, open) { const ctx = this.ctx, src = ctx.createBufferSource(); src.buffer = this.noiseBuf;
+    const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 7800;
+    const g = ctx.createGain(); const d = open ? .24 : .05;
+    g.gain.setValueAtTime(vel, t); g.gain.exponentialRampToValueAtTime(1e-4, t + d);
+    src.connect(f); f.connect(g); this._out(g, { pan: .25, verb: .05 }); src.start(t); src.stop(t + d + .05); };
+  Audio.riser = function (t, dur) { const ctx = this.ctx, src = ctx.createBufferSource(); src.buffer = this.noiseBuf; src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.2;
+    f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(6000, t + dur);
+    const g = ctx.createGain(); g.gain.setValueAtTime(1e-4, t); g.gain.linearRampToValueAtTime(.09, t + dur); g.gain.linearRampToValueAtTime(1e-4, t + dur + .15);
+    src.connect(f); f.connect(g); this._out(g, { verb: .4 }); src.start(t); src.stop(t + dur + .3); };
+
+  // 보이스리딩: 이전 보이싱에서 최소 이동으로 옥타브 배치
+  function voiceLead(tones, prev, root) {
+    const v = tones.map(s => root + s);
+    if (!prev) return v.sort((a, b) => a - b);
+    return v.map(n => { let best = n, bd = 1e9;
+      [-12, 0, 12].forEach(o => { const c = n + o; const d = Math.min.apply(null, prev.map(p => Math.abs(p - c))); if (d < bd) { bd = d; best = c; } });
+      return best; }).sort((a, b) => a - b);
+  }
+
+  /* --- 작곡: 이미지 → 3섹션 폼(A → A' → Climax) + 픽카르디 종지 --- */
   Audio.play = function (a, onEnd) {
-    this.ensure(); const t0 = this.ctx.currentTime + .06;
+    this.ensure(); const ctx = this.ctx;
     const dark = a.aura < -.1;
-    const root = (dark ? 45 : 48) + Math.floor(((a.domHue) % 360) / 360 * 12);
-    const scale = dark ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11];
-    const beat = Math.max(.32, .48 - a.sat * .12);
-    // 진행: 어두우면 i-VI-III-VII, 밝으면 I-V-vi-IV
-    const prog = dark ? [[0, 3, 7], [8, 12, 15], [3, 7, 10], [10, 14, 17]]
-                      : [[0, 4, 7], [7, 11, 14], [9, 12, 16], [5, 9, 12]];
-    const mel = a.wave; let t = t0;
-    for (let b = 0; b < prog.length; b++) {
-      const ch = prog[b], barLen = beat * 4;
-      this.note(m2f(root - 12 + ch[0]), t, barLen * .95, { type: 'triangle', vol: .13, attack: .04 }); // 베이스
-      ch.forEach((s, i) => { // 패드(디튠 2겹)
-        this.note(m2f(root + s), t, barLen, { type: 'sine', vol: .055, attack: .3, pan: (i - 1) * .35 });
-        this.note(m2f(root + s), t, barLen, { type: 'triangle', vol: .028, detune: 7, attack: .3 });
+    const bpm = Math.round(88 + a.sat * 26 + (dark ? -8 : 4));         // 채도 → 템포
+    const beat = 60 / bpm, bar = beat * 4;
+    this.dL.delayTime.value = beat * .75; this.dR.delayTime.value = beat * .75; // 점8분 딜레이
+    const key = 48 + Math.floor(((a.domHue) % 360) / 360 * 12);        // 주조색 → 조성
+    // 진행: 어두우면 i9→bVIΔ7→iv7→bVII7(백도어), 밝으면 IΔ9→vi7→IVΔ7→V7
+    const progA = dark ? [[0, 3, 7, 10, 14], [8, 12, 15, 19], [5, 8, 12, 15], [10, 14, 17, 20]]
+                       : [[0, 4, 7, 11, 14], [9, 12, 16, 19], [5, 9, 12, 16], [7, 11, 14, 17]];
+    const progC = [[0, 4, 7, 11, 14], [7, 11, 14, 17], [5, 9, 12, 16], [10, 14, 17, 20]]; // 병행장조 클라이맥스
+    const hum = () => (Math.random() - .5) * .022;                     // 휴머나이즈 ±11ms
+    // 모티프: 이미지 파형 4점 → 펜타토닉 등급, 전개 = 이조·전위
+    const w = a.wave;
+    const motif = [0, 1, 2, 3].map(i => Math.floor(w[Math.floor(i * w.length / 4)] * 5) % 5);
+    const inv = motif.map(d => 4 - d);
+    const t0 = ctx.currentTime + .08; let t = t0, prevV = null;
+    const sections = [
+      { prog: progA, drums: 0, arp: false, mel: motif, dens: .6, cutoff: 1500, major: !dark },
+      { prog: progA, drums: 1, arp: true, mel: motif.map(d => (d + 1) % 5), dens: .8, cutoff: 2600, major: !dark },
+      { prog: progC, drums: 2, arp: true, mel: inv, dens: 1, cutoff: 5200, major: true },
+    ];
+    sections.forEach((S, si) => {
+      this.busFilter.frequency.linearRampToValueAtTime(S.cutoff, t + bar * .8); // 섹션별 필터 오픈
+      if (si === 2) this.riser(t - bar * .85, bar * .8);                        // 클라이맥스 라이저
+      const penta = S.major ? [0, 2, 4, 7, 9] : [0, 3, 5, 7, 10];
+      S.prog.forEach((tones, bi) => {
+        const v = voiceLead(tones, prevV, key); prevV = v;
+        // 패드 — 보이스리딩된 보이싱, 스테레오 배치
+        v.forEach((n, i) => this.pad(m2f(n), t, bar * 1.02, .045 + (i === v.length - 1 ? .014 : 0), (i / (v.length - 1) - .5) * .7));
+        // 베이스 — 루트·5도·옥타브 픽업(신코페이션)
+        const rt = key - 24 + tones[0];
+        this.bassN(m2f(rt), t + hum(), beat * 1.6, .16);
+        this.bassN(m2f(rt + 7), t + beat * 2 + hum(), beat * 1.1, .13);
+        if (S.dens > .7) this.bassN(m2f(rt + 12), t + beat * 3.5 + hum(), beat * .45, .11);
+        // 멜로디(FM EP) — 모티프 프레이즈, 다운비트 악센트, 뒤로 미는 스윙, 종지 호흡
+        S.mel.forEach((deg, ni) => {
+          if (bi === 3 && ni === 3) return;                                     // 프레이즈 끝 쉼표
+          const tt = t + ni * beat + (ni % 2 ? beat * .06 : 0) + hum();
+          const oct = (bi % 2 === 1 && ni === 2) ? 12 : 0;
+          const vel = .13 * (ni === 0 ? 1.2 : .9) * (.85 + S.dens * .3);
+          this.ep(m2f(key + 12 + penta[deg] + oct), tt, beat * .95, vel, (deg / 4 - .5) * .6, .22);
+        });
+        // 아르페지오 — 코드톤 8분 상행 (섹션 2부터)
+        if (S.arp) for (let n = 0; n < 8; n++)
+          this.ep(m2f(v[n % v.length] + 12), t + n * beat * .5 + hum(), beat * .4, .04, n % 2 ? .55 : -.55, .3);
+        // 드럼
+        if (S.drums) for (let b4 = 0; b4 < 4; b4++) { const bt = t + b4 * beat;
+          if (b4 === 0 || b4 === 2) this.kick(bt + hum(), .5);
+          if (S.drums > 1 && b4 === 3) this.kick(bt + beat * .5 + hum(), .34);   // 싱코 킥
+          this.hat(bt + hum(), b4 % 2 ? .05 : .09);
+          this.hat(bt + beat * .5 + hum(), .05, S.drums > 1 && b4 === 3);
+        }
+        t += bar;
       });
-      for (let n = 0; n < 8; n++) { // 멜로디(이미지 파형 → 음계)
-        const w = mel[(b * 8 + n) % mel.length]; if (w < .12) continue; // 어두운 열은 쉼표
-        const deg = Math.min(scale.length - 1, Math.floor(w * scale.length)), oct = w > .66 ? 12 : 0;
-        const dur = (n % 2 === 0 ? beat * .9 : beat * .5);
-        this.note(m2f(root + 12 + scale[deg] + oct), t + n * beat * .5, dur, { type: 'triangle', vol: .085, attack: .01, pan: (w - .5) * .5 });
-        if (n % 4 === 0) this.note(m2f(root + 24 + scale[deg]), t + n * beat * .5, beat * 1.6, { type: 'sine', vol: .03, attack: .02, pan: .4 }); // 셰머
-      }
-      t += barLen;
-    }
-    // 웅장한 해피엔딩 — 무조건 장조 I로 귀결
-    const gr = root + 12, maj = [0, 4, 7, 12, 16, 19];
-    this.note(m2f(gr - 24), t, 4, { type: 'triangle', vol: .14, attack: .05 });
-    maj.forEach((s, i) => this.note(m2f(gr + s), t + .02 * i, 3.6, { type: 'sine', vol: .1, attack: .05, pan: (i % 2 ? .3 : -.3) }));
-    [0, 4, 7, 12, 16, 19, 24].forEach((s, i) => this.note(m2f(gr + s), t + i * .13, 1.4, { type: 'triangle', vol: .09, attack: .01 })); // 상행 플루리시
+    });
+    // 픽카르디 피날레 — IΔ add6/9, 상행 펜타 플루리시, 필터 완전 오픈
+    this.busFilter.frequency.linearRampToValueAtTime(6500, t + .5);
+    this.bassN(m2f(key - 24), t, 3.6, .18);
+    [0, 4, 7, 9, 14, 16].forEach((s, i) => this.pad(m2f(key + s), t + .02 * i, 4, .06, (i % 2 ? .45 : -.45)));
+    [0, 2, 4, 7, 9, 12, 14, 16].forEach((s, i) => this.ep(m2f(key + 12 + s), t + i * beat * .22, 1.5, .1, (i / 8 - .5), .3));
+    this.hat(t, .1, true);
     t += 4;
     const total = t - t0; this.playing = true;
     setTimeout(() => { this.playing = false; if (onEnd) onEnd(); }, total * 1000);
