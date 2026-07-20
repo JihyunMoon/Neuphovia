@@ -249,70 +249,96 @@
       return best; }).sort((a, b) => a - b);
   }
 
-  /* --- 작곡: 이미지 → 3섹션 폼(A → A' → Climax) + 픽카르디 종지 --- */
-  Audio.play = function (a, onEnd) {
+  /* --- 장르 인식: 이미지 분석 → 어울리는 음악 장르 --- */
+  AuraCore.GENRES = {
+    lofi:      { name: 'Lo-fi', bpm: 74,  swing: .14, drums: 'boom', wob: true,  vinyl: true,  bass: 'round',  pad: 'warm',  desc: '나른한 재즈 코드·스윙 비트' },
+    cinematic: { name: 'Cinematic', bpm: 82, swing: .02, drums: 'epic', wob: false, vinyl: false, bass: 'sub',   pad: 'strings', desc: '웅장한 스트링·팀파니' },
+    ambient:   { name: 'Ambient', bpm: 60, swing: 0,   drums: 'none', wob: false, vinyl: false, bass: 'drone', pad: 'glass', desc: '떠도는 패드·무박자' },
+    synthwave: { name: 'Synthwave', bpm: 104, swing: 0, drums: 'four', wob: false, vinyl: false, bass: 'pluck', pad: 'saw',   desc: '아르페지오·네온 신스' },
+    dreampop:  { name: 'Dream-pop', bpm: 92, swing: .06, drums: 'soft', wob: false, vinyl: false, bass: 'round', pad: 'wide',  desc: '리버비한 기타·부드러운 비트' },
+  };
+  AuraCore.detectGenre = function (a) {
+    const b = a.bright, s = a.sat, w = a.warm, au = a.aura;
+    if (b < .34 && s < .3) return 'ambient';                 // 어둡고 무채 → 앰비언트
+    if (au < -.05 && s < .45) return 'cinematic';            // 어둡고 극적 → 시네마틱
+    if (s > .5 && (Math.abs(w) < .1 || w < 0)) return 'synthwave'; // 채도 높고 차가움 → 신스웨이브
+    if (b > .55 && s > .35) return 'dreampop';               // 밝고 부드러움 → 드림팝
+    return 'lofi';                                           // 기본 → 로파이
+  };
+
+  /* --- 작곡: 장르 인식 → 장르별 편곡 (3섹션 A→A'→Climax + 픽카르디) --- */
+  Audio.play = function (a, onEnd, genreKey) {
     this.ensure(); const ctx = this.ctx;
+    const gk = genreKey || AuraCore.detectGenre(a), G = AuraCore.GENRES[gk] || AuraCore.GENRES.lofi;
+    this.lastGenre = gk;
     const dark = a.aura < -.1;
-    const bpm = Math.round(88 + a.sat * 26 + (dark ? -8 : 4));         // 채도 → 템포
+    const bpm = Math.round(G.bpm + a.sat * 12 - (dark ? 4 : 0));
     const beat = 60 / bpm, bar = beat * 4;
-    this.dL.delayTime.value = beat * .75; this.dR.delayTime.value = beat * .75; // 점8분 딜레이
-    const key = 48 + Math.floor(((a.domHue) % 360) / 360 * 12);        // 주조색 → 조성
-    // 진행: 어두우면 i9→bVIΔ7→iv7→bVII7(백도어), 밝으면 IΔ9→vi7→IVΔ7→V7
-    const progA = dark ? [[0, 3, 7, 10, 14], [8, 12, 15, 19], [5, 8, 12, 15], [10, 14, 17, 20]]
-                       : [[0, 4, 7, 11, 14], [9, 12, 16, 19], [5, 9, 12, 16], [7, 11, 14, 17]];
-    const progC = [[0, 4, 7, 11, 14], [7, 11, 14, 17], [5, 9, 12, 16], [10, 14, 17, 20]]; // 병행장조 클라이맥스
-    const hum = () => (Math.random() - .5) * .022;                     // 휴머나이즈 ±11ms
-    // 모티프: 이미지 파형 4점 → 펜타토닉 등급, 전개 = 이조·전위
+    this.dL.delayTime.value = beat * .75; this.dR.delayTime.value = beat * .75;
+    const key = 48 + Math.floor(((a.domHue) % 360) / 360 * 12);
+    // 장르별 화성: 로파이=재즈ii-V, 신스웨이브=마이너 팝, 시네마틱=장엄, 앰비언트=서스펜디드
+    const minorJazz = [[0,3,7,10,14],[5,8,12,15],[10,14,17,21],[3,7,10,14]];   // i9 iv9 bVII9 bIII
+    const brightPop = [[0,4,7,11,14],[9,12,16,19],[5,9,12,16],[7,11,14,17]];   // IΔ vi IVΔ V
+    const epic      = [[0,4,7,12],[8,12,15,19],[5,9,12,17],[7,11,14,19]];      // I bVI IV V (장엄)
+    const sus       = [[0,5,7,12],[2,7,9,14],[-3,2,4,9],[0,5,7,12]];           // sus 부유
+    const progMap = { lofi:minorJazz, dreampop:brightPop, synthwave:(dark?minorJazz:brightPop), cinematic:epic, ambient:sus };
+    const progA = progMap[gk] || brightPop;
+    const progC = gk==='cinematic'? [[0,4,7,12],[5,9,12,17],[7,11,14,19],[0,4,7,12]] : brightPop;
+    const hum = () => (Math.random() - .5) * (.012 + G.swing * .06);
+    const swingOff = i => (i % 2 ? beat * G.swing : 0);
     const w = a.wave;
-    const motif = [0, 1, 2, 3].map(i => Math.floor(w[Math.floor(i * w.length / 4)] * 5) % 5);
+    const motif = [0,1,2,3].map(i => Math.floor(w[Math.floor(i*w.length/4)] * 5) % 5);
     const inv = motif.map(d => 4 - d);
     const t0 = ctx.currentTime + .08; let t = t0, prevV = null;
+    const nSec = gk==='ambient' ? 3 : 3;
     const sections = [
-      { prog: progA, drums: 0, arp: false, mel: motif, dens: .6, cutoff: 1500, major: !dark },
-      { prog: progA, drums: 1, arp: true, mel: motif.map(d => (d + 1) % 5), dens: .8, cutoff: 2600, major: !dark },
-      { prog: progC, drums: 2, arp: true, mel: inv, dens: 1, cutoff: 5200, major: true },
+      { prog: progA, level: 0, mel: motif,                dens: .55, cutoff: gk==='ambient'?1100:1500 },
+      { prog: progA, level: 1, mel: motif.map(d=>(d+1)%5), dens: .8,  cutoff: gk==='ambient'?1600:2600 },
+      { prog: progC, level: 2, mel: inv,                   dens: 1,   cutoff: gk==='ambient'?2200:5200 },
     ];
+    const drumFor = (lvl, b4) => {
+      if (G.drums==='none' || lvl===0) return;
+      if (G.drums==='boom'){ if(b4===0) this.kick(t+b4*beat+hum(),.5); if(b4===2) this.kick(t+b4*beat+beat*.5+hum(),.42);
+        this.hat(t+b4*beat+beat*.5+hum(), b4===1?.09:.05, false); return; }
+      if (G.drums==='four'){ this.kick(t+b4*beat,.5); this.hat(t+b4*beat+beat*.5, .06, false); return; }
+      if (G.drums==='soft'){ if(b4===0||b4===2) this.kick(t+b4*beat+hum(),.32); this.hat(t+b4*beat+hum(),.04); return; }
+      if (G.drums==='epic'){ if(b4===0||b4===2) this.kick(t+b4*beat,.6); if(lvl===2&&b4===3){this.kick(t+b4*beat+beat*.5,.4);} }
+    };
     sections.forEach((S, si) => {
-      this.busFilter.frequency.linearRampToValueAtTime(S.cutoff, t + bar * .8); // 섹션별 필터 오픈
-      if (si === 2) this.riser(t - bar * .85, bar * .8);                        // 클라이맥스 라이저
-      const penta = S.major ? [0, 2, 4, 7, 9] : [0, 3, 5, 7, 10];
+      this.busFilter.frequency.linearRampToValueAtTime(S.cutoff, t + bar * .8);
+      if (si === 2 && G.drums!=='none') this.riser(t - bar * .85, bar * .8);
+      const penta = dark ? [0,3,5,7,10] : [0,2,4,7,9];
       S.prog.forEach((tones, bi) => {
         const v = voiceLead(tones, prevV, key); prevV = v;
-        // 패드 — 보이스리딩된 보이싱, 스테레오 배치
-        v.forEach((n, i) => this.pad(m2f(n), t, bar * 1.02, .045 + (i === v.length - 1 ? .014 : 0), (i / (v.length - 1) - .5) * .7));
-        // 베이스 — 루트·5도·옥타브 픽업(신코페이션)
+        const padDur = gk==='ambient' ? bar*1.4 : bar*1.02;
+        v.forEach((n, i) => this.pad(m2f(n), t, padDur, .04 + (i===v.length-1?.014:0), (i/(v.length-1)-.5)*.7));
+        // 베이스
         const rt = key - 24 + tones[0];
-        this.bassN(m2f(rt), t + hum(), beat * 1.6, .16);
-        this.bassN(m2f(rt + 7), t + beat * 2 + hum(), beat * 1.1, .13);
-        if (S.dens > .7) this.bassN(m2f(rt + 12), t + beat * 3.5 + hum(), beat * .45, .11);
-        // 멜로디(FM EP) — 모티프 프레이즈, 다운비트 악센트, 뒤로 미는 스윙, 종지 호흡
-        S.mel.forEach((deg, ni) => {
-          if (bi === 3 && ni === 3) return;                                     // 프레이즈 끝 쉼표
-          const tt = t + ni * beat + (ni % 2 ? beat * .06 : 0) + hum();
-          const oct = (bi % 2 === 1 && ni === 2) ? 12 : 0;
-          const vel = .13 * (ni === 0 ? 1.2 : .9) * (.85 + S.dens * .3);
-          this.ep(m2f(key + 12 + penta[deg] + oct), tt, beat * .95, vel, (deg / 4 - .5) * .6, .22);
-        });
-        // 아르페지오 — 코드톤 8분 상행 (섹션 2부터)
-        if (S.arp) for (let n = 0; n < 8; n++)
-          this.ep(m2f(v[n % v.length] + 12), t + n * beat * .5 + hum(), beat * .4, .04, n % 2 ? .55 : -.55, .3);
-        // 드럼
-        if (S.drums) for (let b4 = 0; b4 < 4; b4++) { const bt = t + b4 * beat;
-          if (b4 === 0 || b4 === 2) this.kick(bt + hum(), .5);
-          if (S.drums > 1 && b4 === 3) this.kick(bt + beat * .5 + hum(), .34);   // 싱코 킥
-          this.hat(bt + hum(), b4 % 2 ? .05 : .09);
-          this.hat(bt + beat * .5 + hum(), .05, S.drums > 1 && b4 === 3);
-        }
+        if (G.bass==='drone'){ this.bassN(m2f(rt), t, bar, .12); }
+        else if (G.bass==='pluck'){ for(let n=0;n<8;n++) this.bassN(m2f(rt+(n%2?7:0)), t+n*beat*.5, beat*.4, .12); }
+        else { this.bassN(m2f(rt), t+hum(), beat*1.6, .15); this.bassN(m2f(rt+7), t+beat*2+hum(), beat*1.1, .12);
+          if (S.dens>.7) this.bassN(m2f(rt+12), t+beat*3.5+hum(), beat*.45, .1); }
+        // 멜로디
+        if (gk!=='ambient') S.mel.forEach((deg, ni) => {
+          if (bi===3 && ni===3) return;
+          const tt = t + ni*beat + swingOff(ni) + hum();
+          const oct = (bi%2===1 && ni===2) ? 12 : 0;
+          const vel = .12 * (ni===0?1.2:.9) * (.85 + S.dens*.3);
+          this.ep(m2f(key+12+penta[deg]+oct), tt, beat*.95, vel, (deg/4-.5)*.6, .22);
+        }); else if (si>0) { const d=motif[bi%4]; this.ep(m2f(key+24+penta[d]), t, bar*.9, .05, (bi%2?.4:-.4), .5); } // 앰비언트=긴 벨
+        // 아르페지오 (신스웨이브/드림팝 레벨1+)
+        if ((gk==='synthwave'||gk==='dreampop') && S.level>0) for (let n=0;n<8;n++)
+          this.ep(m2f(v[n%v.length]+12), t+n*beat*.5+hum(), beat*.42, .045, n%2?.55:-.55, .3);
+        for (let b4=0;b4<4;b4++) drumFor(S.level, b4);
         t += bar;
       });
     });
-    // 픽카르디 피날레 — IΔ add6/9, 상행 펜타 플루리시, 필터 완전 오픈
-    this.busFilter.frequency.linearRampToValueAtTime(6500, t + .5);
-    this.bassN(m2f(key - 24), t, 3.6, .18);
-    [0, 4, 7, 9, 14, 16].forEach((s, i) => this.pad(m2f(key + s), t + .02 * i, 4, .06, (i % 2 ? .45 : -.45)));
-    [0, 2, 4, 7, 9, 12, 14, 16].forEach((s, i) => this.ep(m2f(key + 12 + s), t + i * beat * .22, 1.5, .1, (i / 8 - .5), .3));
-    this.hat(t, .1, true);
-    t += 4;
+    // 픽카르디 피날레
+    this.busFilter.frequency.linearRampToValueAtTime(gk==='ambient'?2600:6500, t + .6);
+    this.bassN(m2f(key-24), t, 4, .16);
+    [0,4,7,9,14,16].forEach((s,i)=>this.pad(m2f(key+s), t+.02*i, 4.2, .055, (i%2?.45:-.45)));
+    if (gk!=='ambient') [0,2,4,7,9,12,14,16].forEach((s,i)=>this.ep(m2f(key+12+s), t+i*beat*.22, 1.5, .09, (i/8-.5), .3));
+    t += gk==='ambient'?4.5:4;
     const total = t - t0; this.playing = true;
     setTimeout(() => { this.playing = false; if (onEnd) onEnd(); }, total * 1000);
     return total;
@@ -413,6 +439,118 @@
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.34)');
     c.fillStyle = vg; c.fillRect(0, 0, w, h);
   };
+
+  /* ---------- 3D 깊이 포인트 클라우드 ----------
+     이미지를 깊이 그리드로 변환(위=원경·어두움=원경 휴리스틱) →
+     회전(yaw/pitch) 가능한 3D 릴리프. 드래그로 돌려 깊이를 살펴본다. */
+  AuraCore.buildDepthGrid = function (img, cols, nLayers) {
+    cols = cols || 88; nLayers = nLayers || 4;
+    const iw = img.width || img.naturalWidth, ih = img.height || img.naturalHeight;
+    const rows = Math.max(8, Math.round(cols * ih / iw));
+    const oc = document.createElement('canvas'); oc.width = cols; oc.height = rows;
+    const o = oc.getContext('2d'); o.drawImage(img, 0, 0, cols, rows);
+    let data; try { data = o.getImageData(0, 0, cols, rows).data; } catch (e) { return null; }
+    const pts = [];
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+      const i = (y * cols + x) * 4;
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      // 연속 깊이 추정: 상단=원경 + 어두움=원경 (0..1, 1=가까움)
+      const depth = 1 - ((y / (rows - 1)) * 0.6 + (1 - lum) * 0.4);
+      pts.push({ x: x / (cols - 1) - 0.5, y: y / (rows - 1) - 0.5, depth, r, g, b, lum });
+    }
+    // 1D k-means로 깊이를 nLayers 레이어로 분리 (전경/중경/원경)
+    let cent = Array.from({ length: nLayers }, (_, k) => (k + .5) / nLayers);
+    for (let it = 0; it < 8; it++) {
+      const sum = new Float64Array(nLayers), cnt = new Int32Array(nLayers);
+      for (const p of pts) { let bk = 0, bd = 9; for (let k = 0; k < nLayers; k++) { const d = Math.abs(p.depth - cent[k]); if (d < bd) { bd = d; bk = k; } } p.layer = bk; sum[bk] += p.depth; cnt[bk]++; }
+      for (let k = 0; k < nLayers; k++) if (cnt[k]) cent[k] = sum[k] / cnt[k];
+    }
+    // 레이어를 가까운 순으로 정렬 → layerZ: 원경(-)..근경(+), 레이어 간 '간격' 부여
+    const order = cent.map((c0, k) => ({ k, c0 })).sort((a, b) => a.c0 - b.c0); // 먼→가까운
+    const remap = {}; order.forEach((o2, rank) => remap[o2.k] = rank);
+    for (const p of pts) { const rank = remap[p.layer]; p.layer = rank; p.layerZ = (rank / (nLayers - 1) - 0.5); }
+    return { pts, cols, rows, ar: iw / ih, nLayers };
+  };
+  // 원본 이미지를 고해상 텍스처로 캐시(메시 위에 실사 화질로 얹기)
+  AuraCore._texCache = { key: null, cv: null };
+  AuraCore._getTex = function (img) {
+    const iw = img.width || img.naturalWidth;
+    if (AuraCore._texCache.key === img.src && AuraCore._texCache.cv) return AuraCore._texCache.cv;
+    const cv = document.createElement('canvas'); const s = Math.min(1024, iw);
+    cv.width = s; cv.height = Math.round(s * (img.height || img.naturalHeight) / iw);
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    AuraCore._texCache = { key: img.src, cv }; return cv;
+  };
+  AuraCore.depth3DFrame = function (c, w, h, grid, yaw, pitch, t, energy, img) {
+    energy = energy === undefined ? .45 : energy;
+    c.fillStyle = '#070709'; c.fillRect(0, 0, w, h);
+    const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const unit = Math.min(w / grid.ar, h) * (grid.ar > 1 ? grid.ar : 1) * 0.9;
+    const sxu = unit * (grid.ar >= 1 ? 1 : grid.ar), syc = unit / (grid.ar >= 1 ? grid.ar : 1);
+    const gap = 0.5 + energy * 0.14, relief = 0.05, focal = 2.6;
+    const cols = grid.cols, rows = grid.rows, P = grid.pts;
+    // 정점 투영
+    const V = new Array(P.length);
+    for (let i = 0; i < P.length; i++) {
+      const p = P[i];
+      const z0 = p.layerZ * gap + (p.depth - 0.5) * relief;
+      const x1 = p.x * cy + z0 * sy, z1 = -p.x * sy + z0 * cy;
+      const y1 = p.y * cp - z1 * sp, z2 = p.y * sp + z1 * cp;
+      const d = focal / (focal + z2);
+      V[i] = { sx: w / 2 + x1 * sxu * d, sy: h / 2 + y1 * syc * d, z: z2, layer: p.layer };
+    }
+    // 텍스처가 있으면 삼각형 어파인 매핑으로 실사 렌더
+    const tex = img ? AuraCore._getTex(img) : null;
+    const near = l => 0.62 + (l / Math.max(1, grid.nLayers - 1)) * 0.5;   // 대기원근
+    // 셀(2삼각형) 목록 — 같은 레이어끼리만 잇고, 평균 z로 정렬(painter's)
+    const cells = [];
+    for (let y = 0; y < rows - 1; y++) for (let x = 0; x < cols - 1; x++) {
+      const a = y * cols + x, b = a + 1, cc = a + cols, dd = cc + 1;
+      const la = P[a].layer;
+      if (P[b].layer !== la || P[cc].layer !== la || P[dd].layer !== la) continue; // 레이어 경계는 끊음
+      cells.push({ a, b, cc, dd, z: (V[a].z + V[b].z + V[cc].z + V[dd].z) / 4, layer: la });
+    }
+    cells.sort((p, q) => q.z - p.z);
+    const tw = tex ? tex.width : cols, th = tex ? tex.height : rows;
+    const uAt = i => (P[i].x + .5), vAt = i => (P[i].y + .5);
+    if (tex) {
+      // 배경판: 전체 사진을 가장 먼 깊이에 평평하게 깔아 레이어 분리 구멍을 메움(살짝 어둡게)
+      const backZ = -0.5 * gap - relief * .5;
+      const corner = (cx0, cy0) => { const x1 = cx0 * cy + backZ * sy, z1 = -cx0 * sy + backZ * cy, y1 = cy0 * cp - z1 * sp, z2 = cy0 * sp + z1 * cp, d = focal / (focal + z2); return { sx: w / 2 + x1 * sxu * d, sy: h / 2 + y1 * syc * d }; };
+      const c00 = corner(-.5, -.5), c10 = corner(.5, -.5), c01 = corner(-.5, .5), c11 = corner(.5, .5);
+      c.save(); c.globalAlpha = .82;
+      drawTexTri(c, tex, c00, c10, c01, 0, 0, tw, 0, 0, th);
+      drawTexTri(c, tex, c10, c11, c01, tw, 0, tw, th, 0, th);
+      c.restore();
+      c.save(); c.globalAlpha = .35; c.fillStyle = '#000';
+      c.beginPath(); c.moveTo(c00.sx, c00.sy); c.lineTo(c10.sx, c10.sy); c.lineTo(c11.sx, c11.sy); c.lineTo(c01.sx, c01.sy); c.closePath(); c.fill(); c.restore();
+      for (const cell of cells) {
+        drawTexTri(c, tex, V[cell.a], V[cell.b], V[cell.cc], uAt(cell.a) * tw, vAt(cell.a) * th, uAt(cell.b) * tw, vAt(cell.b) * th, uAt(cell.cc) * tw, vAt(cell.cc) * th);
+        drawTexTri(c, tex, V[cell.b], V[cell.dd], V[cell.cc], uAt(cell.b) * tw, vAt(cell.b) * th, uAt(cell.dd) * tw, vAt(cell.dd) * th, uAt(cell.cc) * tw, vAt(cell.cc) * th);
+      }
+    } else {
+      for (const cell of cells) { const br = near(cell.layer), p = P[cell.a];
+        c.fillStyle = `rgb(${p.r * br | 0},${p.g * br | 0},${p.b * br | 0})`;
+        c.beginPath(); c.moveTo(V[cell.a].sx, V[cell.a].sy); c.lineTo(V[cell.b].sx, V[cell.b].sy); c.lineTo(V[cell.dd].sx, V[cell.dd].sy); c.lineTo(V[cell.cc].sx, V[cell.cc].sy); c.closePath(); c.fill(); }
+    }
+    const vg = c.createRadialGradient(w / 2, h / 2, Math.min(w, h) * .36, w / 2, h / 2, Math.max(w, h) * .74);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.42)');
+    c.fillStyle = vg; c.fillRect(0, 0, w, h);
+  };
+  // 삼각형 어파인 텍스처 매핑 (uv → 화면 좌표)
+  function drawTexTri(ctx, tex, v0, v1, v2, u0, w0, u1, w1, u2, w2) {
+    ctx.save();
+    ctx.beginPath(); ctx.moveTo(v0.sx, v0.sy); ctx.lineTo(v1.sx, v1.sy); ctx.lineTo(v2.sx, v2.sy); ctx.closePath(); ctx.clip();
+    const dx1 = v1.sx - v0.sx, dy1 = v1.sy - v0.sy, dx2 = v2.sx - v0.sx, dy2 = v2.sy - v0.sy;
+    const ux1 = u1 - u0, uy1 = w1 - w0, ux2 = u2 - u0, uy2 = w2 - w0;
+    const det = ux1 * uy2 - ux2 * uy1; if (Math.abs(det) < 1e-6) { ctx.restore(); return; }
+    const ia = (uy2 * dx1 - uy1 * dx2) / det, ib = (uy2 * dy1 - uy1 * dy2) / det;
+    const ic = (ux1 * dx2 - ux2 * dx1) / det, id = (ux1 * dy2 - ux2 * dy1) / det;
+    ctx.transform(ia, ib, ic, id, v0.sx - ia * u0 - ic * w0, v0.sy - ib * u0 - id * w0);
+    ctx.drawImage(tex, 0, 0);
+    ctx.restore();
+  }
 
   /* ---------- 필름 룩 프리셋 (마스터 그레이딩) ---------- */
   AuraCore.FILM_PRESETS = {

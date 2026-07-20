@@ -124,11 +124,20 @@
   </div>
 </div>
 
-<script src="aura-core.js?v=5"></script>
+<script src="aura-core.js?v=9"></script>
 <script>
 const $=id=>document.getElementById(id);
 let library=[], current=null, curImg=null, mode='analyze';
 let overlay='golden', graded=null, divider=.5, strength=1, composeData=null, showOrig=false, filmKey='none';
+let songGenre=null, depth3D=false, dg=null, yaw=.5, pitch=.15, dragR=false, lastX=0, lastY=0, autoR=true;
+let movingFilm='none', movingTex=null, movingTexKey=null;
+// 무빙 텍스처: 재가공 룩이 켜지면 그레이딩된 캔버스, 아니면 원본 이미지
+function movingSource(){
+  if(movingFilm==='none') return curImg;
+  const key=(current&&current.id)+'|'+movingFilm;
+  if(movingTexKey!==key||!movingTex){ movingTex=AuraCore.filmGrade(curImg,movingFilm).after; movingTexKey=key; movingTex.src=key; }
+  return movingTex;
+}
 
 async function refresh(){
   try{ library=await AuraCore.db.all(); }catch(e){ library=library||[]; }
@@ -211,23 +220,39 @@ function render(){
     $('st').oninput=ev=>{strength=ev.target.value/100;const {c,w,h}=setupHero();drawEnhance(c,w,h);};
   }
   else if(mode==='living'){
-    startLiving();
+    if(depth3D) startDepth3D(); else startLiving();
+    const fname=movingFilm==='none'?'':' · '+AuraCore.FILM_PRESETS[movingFilm].name;
     $('content').innerHTML=`
-      <div class="line"><b>살아있는 사진</b> <span class="mut">· Ken Burns φ + 빛 + 입자</span></div>
+      <div class="line"><b>${depth3D?'3D 깊이':'살아있는 사진'}</b> <span class="mut">· ${depth3D?'드래그로 회전 · 깊이 탐색':'Ken Burns φ + 빛 + 입자'}${fname}</span></div>
       <div class="row">
-        <button class="ghost ${parallaxOn?'on':''}" id="lvPx">🏔 2.5D 패럴랙스</button>
+        <button class="ghost ${depth3D?'on':''}" id="lv3d">🧊 3D 깊이</button>
+        <button class="ghost ${parallaxOn&&!depth3D?'on':''}" id="lvPx">🏔 2.5D 패럴랙스</button>
+        <button class="ghost ${movingFilm!=='none'?'on':''}" id="lvFilm">🎞 재가공 룩</button>
+      </div>
+      <div class="row" style="margin-top:8px">
         <button class="ghost" id="lvSong">♪ 노래와 함께</button>
         <button class="ghost" id="lvRec">⏺ 영상 저장 (webm)</button>
       </div>
-      <div class="hint" id="lvHint">${parallaxOn?'사진 위에서 마우스를 움직여 보세요 — 깊이가 반응합니다':'정지 사진이 황금점을 향해 숨 쉬듯 움직입니다'}</div>`;
-    $('lvPx').onclick=()=>{parallaxOn=!parallaxOn;render();};
+      <div class="hint" id="lvHint">${depth3D?'캔버스를 드래그해 돌려보세요 — 손 떼면 자동 회전':(parallaxOn?'마우스를 움직여 깊이를 느껴보세요':'황금점을 향해 숨 쉬듯 움직입니다')}</div>`;
+    $('lv3d').onclick=()=>{depth3D=!depth3D;if(depth3D)parallaxOn=false;render();};
+    $('lvPx').onclick=()=>{parallaxOn=!parallaxOn;if(parallaxOn)depth3D=false;render();};
+    $('lvFilm').onclick=()=>{ // 재가공 룩 순환: none→기본→Portra→CineStill→Fuji→Noir
+      const ks=['none','portra','cinestill','fuji','noir'];movingFilm=ks[(ks.indexOf(movingFilm)+1)%ks.length];
+      movingTex=null; if(dg)dg._texFor=null; render();};
     $('lvSong').onclick=()=>{if(AuraCore.audio.playing)return;livingSong=true;const dur=AuraCore.audio.play(current.analysis,()=>{livingSong=false;});livingSongT0=performance.now();livingSongDur=dur;};
     $('lvRec').onclick=()=>recordLiving();
   }
   else if(mode==='song'){
     drawWave(c,w,h,false);
-    $('content').innerHTML=`<button class="play" id="pl">▶</button><div class="line mut" style="margin-top:14px;font-size:13px">${AuraCore.musicArc(a)}</div>`;
-    $('pl').onclick=()=>{if(AuraCore.audio.playing)return;$('pl').textContent='♪';const dur=AuraCore.audio.play(a,()=>{$('pl').textContent='▶';});animWave(dur);};
+    const gk=songGenre||AuraCore.detectGenre(a), G=AuraCore.GENRES[gk];
+    const chips=Object.keys(AuraCore.GENRES).map(k=>`<button class="ghost ${gk===k?'on':''}" data-g="${k}">${AuraCore.GENRES[k].name}</button>`).join('');
+    $('content').innerHTML=`
+      <button class="play" id="pl">▶</button>
+      <div class="line" style="margin-top:12px"><b>${G.name}</b> <span class="mut">· ${G.desc}</span></div>
+      <div class="row">${chips}</div>
+      <div class="line mut" style="font-size:12px;margin-top:8px">${AuraCore.musicArc(a)}</div>`;
+    document.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{songGenre=b.dataset.g;render();});
+    $('pl').onclick=()=>{if(AuraCore.audio.playing)return;$('pl').textContent='♪';const dur=AuraCore.audio.play(a,()=>{$('pl').textContent='▶';},songGenre||undefined);animWave(dur);};
   }
   else if(mode==='identity'){
     drawScatter(c,w,h);const A=library.map(it=>it.analysis);const id=AuraCore.identity(A);
@@ -253,15 +278,30 @@ function drawCompose(c,w,h){const a=current.analysis;
 let livingRAF=null,livingSong=false,livingSongT0=0,livingSongDur=0;
 let parallaxOn=false,pxTarget=0,pyTarget=0,pxCur=0,pyCur=0,pointerIn=false;
 function livingEnergy(){if(!livingSong)return .45;const p=Math.min(1,(performance.now()-livingSongT0)/(livingSongDur*1000));return p<.35?.4+.3*p/.35:p<.7?.55+.35*(p-.35)/.35:p<.85?.95:Math.max(.3,.95-(p-.85)/.15*.6);}
-function startLiving(){cancelAnimationFrame(livingRAF);const step=()=>{if(mode!=='living'){livingRAF=null;return;}const {c,w,h}=setupHero();const t=performance.now()/1000;
+function startLiving(){cancelAnimationFrame(livingRAF);const step=()=>{if(mode!=='living'){livingRAF=null;return;}const {c,w,h}=setupHero();const t=performance.now()/1000;const src=movingSource();
   if(parallaxOn){
     if(!pointerIn){pxTarget=Math.sin(t*.4)*.6;pyTarget=Math.cos(t*.31)*.35;}
     pxCur+=(pxTarget-pxCur)*.08;pyCur+=(pyTarget-pyCur)*.08;
-    AuraCore.parallaxFrame(c,w,h,curImg,current.analysis,t,pxCur,pyCur,livingEnergy());
-  } else AuraCore.livingFrame(c,w,h,curImg,current.analysis,t,livingEnergy());
+    AuraCore.parallaxFrame(c,w,h,src,current.analysis,t,pxCur,pyCur,livingEnergy());
+  } else AuraCore.livingFrame(c,w,h,src,current.analysis,t,livingEnergy());
   livingRAF=requestAnimationFrame(step);};livingRAF=requestAnimationFrame(step);}
 $('hero').addEventListener('pointermove',e=>{if(mode!=='living'||!parallaxOn)return;pointerIn=true;const r=$('hero').getBoundingClientRect();pxTarget=((e.clientX-r.left)/r.width-.5)*2;pyTarget=((e.clientY-r.top)/r.height-.5)*2;});
 $('hero').addEventListener('pointerleave',()=>{pointerIn=false;});
+/* 3D 깊이 회전 */
+function startDepth3D(){
+  cancelAnimationFrame(livingRAF);
+  const src=movingSource(), fkey=current.id+'|'+movingFilm;
+  if(!dg||dg._for!==fkey){dg=AuraCore.buildDepthGrid(src,140,4);if(dg)dg._for=fkey;}
+  const step=()=>{ if(mode!=='living'||!depth3D){livingRAF=null;return;}
+    const {c,w,h}=setupHero();
+    if(autoR&&!dragR) yaw+=0.004;
+    if(dg) AuraCore.depth3DFrame(c,w,h,dg,yaw,pitch,performance.now()/1000,livingEnergy(),movingSource());
+    livingRAF=requestAnimationFrame(step);};
+  livingRAF=requestAnimationFrame(step);
+}
+$('hero').addEventListener('pointerdown',e=>{if(mode!=='living'||!depth3D)return;dragR=true;autoR=false;lastX=e.clientX;lastY=e.clientY;$('hero').setPointerCapture(e.pointerId);});
+$('hero').addEventListener('pointermove',e=>{if(!dragR)return;yaw+=(e.clientX-lastX)*0.01;pitch=Math.max(-0.6,Math.min(0.6,pitch+(e.clientY-lastY)*0.008));lastX=e.clientX;lastY=e.clientY;});
+$('hero').addEventListener('pointerup',()=>{dragR=false;setTimeout(()=>autoR=true,2200);});
 function recordLiving(){
   AuraCore.audio.ensure();
   const cv=$('hero');const stream=cv.captureStream(30);
