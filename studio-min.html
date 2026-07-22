@@ -159,15 +159,16 @@ function renderGrid(){
 }
 async function addSource(src){
   const analysis=AuraCore.analyze(src); if(!analysis)return;
-  const thumb=AuraCore.toThumb(src,360);
-  let id; try{ id=await AuraCore.db.add({thumb,analysis,createdAt:Date.now()}); }catch(e){ id='m'+Math.random(); }
-  library.push({id,thumb,analysis}); renderGrid();
+  const thumb=AuraCore.toThumb(src,360);        // 라이브러리 그리드용(가벼움)
+  const display=AuraCore.toThumb(src,1600);      // 상세·재가공·3D·무빙용(고화질)
+  let id; try{ id=await AuraCore.db.add({thumb,display,analysis,createdAt:Date.now()}); }catch(e){ id='m'+Math.random(); }
+  library.push({id,thumb,display,analysis}); renderGrid();
 }
 document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>addSource(AuraCore.genSample(b.dataset.s)));
 $('file').addEventListener('change',e=>{[...e.target.files].forEach(f=>{const im=new Image();im.onload=()=>addSource(im);im.src=URL.createObjectURL(f);});});
 
 /* detail */
-function open(it){current=it;curImg=new Image();curImg.onload=()=>{setMode('analyze');};curImg.src=it.thumb;$('detail').classList.add('on');document.body.style.overflow='hidden';}
+function open(it){current=it;curImg=new Image();curImg.onload=()=>{setMode('analyze');};curImg.src=it.display||it.thumb;$('detail').classList.add('on');document.body.style.overflow='hidden';}
 $('back').onclick=()=>{$('detail').classList.remove('on');document.body.style.overflow='';};
 document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
 function setMode(m){mode=m;document.querySelectorAll('.seg button').forEach(x=>x.classList.toggle('on',x.dataset.m===m));graded=null;composeData=null;showOrig=false;render();}
